@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Program {
+  id        String       @id @default(cuid())
+  name      String
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+  days      ProgramDay[]
+}
+
+model ProgramDay {
+  id        String            @id @default(cuid())
+  programId String
+  program   Program           @relation(fields: [programId], references: [id])
+  name      String
+  dayOrder  Int
+  exercises ProgramExercise[]
+  workouts  Workout[]
+}
+
+model ProgramExercise {
+  id            String     @id @default(cuid())
+  programDayId  String
+  programDay    ProgramDay @relation(fields: [programDayId], references: [id])
+  exerciseId    String
+  exercise      Exercise   @relation(fields: [exerciseId], references: [id])
+  exerciseOrder Int
+  targetSets    Int
+  targetReps    String
+  targetRpe     String?
+  restSeconds   Int
+  isMain        Boolean    @default(false)
+  notes         String?
+}
+
+model Exercise {
+  id              String            @id @default(cuid())
+  name            String            @unique
+  category        String
+  bodyPart        String
+  programExercise ProgramExercise[]
+  sets            WorkoutSet[]
+}
+
+model Workout {
+  id           String      @id @default(cuid())
+  date         DateTime    @default(now())
+  programDayId String?
+  programDay   ProgramDay? @relation(fields: [programDayId], references: [id])
+  notes        String?
+  bodyweight   Float?
+  sleepHours   Float?
+  energy       Int?
+  duration     Int?
+  sets         WorkoutSet[]
+}
+
+model WorkoutSet {
+  id         String   @id @default(cuid())
+  workoutId  String
+  workout    Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise @relation(fields: [exerciseId], references: [id])
+  setOrder   Int
+  weight     Float
+  reps       Int
+  rpe        Float?
+  isWarmup   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+model Settings {
+  id           String  @id @default("singleton")
+  barWeight    Float   @default(45)
+  plates       String  @default("45,35,25,10,5,2.5")
+  mainRestSecs Int     @default(180)
+  acceRestSecs Int     @default(90)
+  darkMode     Boolean @default(true)
+}
