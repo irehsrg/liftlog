@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/db";
 import { saveSettings, addExercise } from "@/app/actions/settings";
 
