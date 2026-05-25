@@ -33,7 +33,7 @@ export default async function ExercisePage({
 
   const chartData = [...byWorkout.values()].map(({ date, sets }) => {
     const bestSet = sets.reduce(
-      (best: typeof allSets[0], s) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
+      (best: typeof allSets[0], s: typeof allSets[0]) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
       sets[0]
     );
     return {
