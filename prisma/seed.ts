@@ -1,9 +1,12 @@
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { PrismaClient } from "@prisma/client";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import path from "path";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 
-const dbPath = process.env.DATABASE_URL?.replace("file:", "") ?? "./dev.db";
-const adapter = new PrismaBetterSqlite3({ url: path.resolve(dbPath) });
+const adapter = new PrismaLibSql({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 const prisma = new PrismaClient({ adapter });
 
 async function main() {

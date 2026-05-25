@@ -1,10 +1,7 @@
-import "dotenv/config";
-import path from "path";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { defineConfig } from "prisma/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-
-const dbPath = process.env.DATABASE_URL?.replace("file:", "") ?? "./prisma/dev.db";
-const resolvedPath = path.resolve(dbPath);
+import { PrismaLibSql } from "@prisma/adapter-libsql";
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
@@ -12,8 +9,11 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: `file:${resolvedPath}`,
+    url: process.env.TURSO_DATABASE_URL!,
     // @ts-ignore — adapter field added in Prisma 7
-    adapter: new PrismaBetterSqlite3({ url: resolvedPath }),
+    adapter: new PrismaLibSql({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    }),
   },
 });
