@@ -122,7 +122,7 @@ export default async function Home() {
             {recentWorkouts.map((w) => {
               const volume = w.sets
                 .filter((s) => !s.isWarmup)
-                .reduce((sum, s) => sum + s.weight * s.reps, 0);
+                .reduce((sum: number, s) => sum + s.weight * s.reps, 0);
               return (
                 <Link
                   key={w.id}

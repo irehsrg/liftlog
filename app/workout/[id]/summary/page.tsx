@@ -31,7 +31,7 @@ export default async function WorkoutSummaryPage({
   if (!workout) notFound();
 
   const workingSets = workout.sets.filter((s) => !s.isWarmup);
-  const totalVolume = workingSets.reduce((sum, s) => sum + s.weight * s.reps, 0);
+  const totalVolume = workingSets.reduce((sum: number, s) => sum + s.weight * s.reps, 0);
 
   // Group by exercise
   const byExercise = workingSets.reduce<Record<string, typeof workingSets>>((acc, s) => {
@@ -53,9 +53,9 @@ export default async function WorkoutSummaryPage({
     const prevWorkoutId = prevSets[0].workoutId;
     const prevWorkoutSets = prevSets.filter((s) => s.workoutId === prevWorkoutId);
     prevData[exId] = {
-      totalVolume: prevWorkoutSets.reduce((sum, s) => sum + s.weight * s.reps, 0),
+      totalVolume: prevWorkoutSets.reduce((sum: number, s) => sum + s.weight * s.reps, 0),
       bestSet: prevWorkoutSets.reduce(
-        (best, s) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
+        (best: typeof prevWorkoutSets[0], s: typeof prevWorkoutSets[0]) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
         prevWorkoutSets[0]
       ),
     };
@@ -89,10 +89,10 @@ export default async function WorkoutSummaryPage({
       <div className="space-y-3">
         {Object.entries(byExercise).map(([exId, exSets]) => {
           const bestSet = exSets.reduce(
-            (best, s) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
+            (best: typeof exSets[0], s: typeof exSets[0]) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
             exSets[0]
           );
-          const volume = exSets.reduce((sum, s) => sum + s.weight * s.reps, 0);
+          const volume = exSets.reduce((sum: number, s) => sum + s.weight * s.reps, 0);
           const prev = prevData[exId];
           const volumeDelta = prev ? ((volume - prev.totalVolume) / prev.totalVolume) * 100 : null;
 

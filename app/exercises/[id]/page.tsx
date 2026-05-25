@@ -31,27 +31,29 @@ export default async function ExercisePage({
     byWorkout.get(key)!.sets.push(s);
   }
 
+  type SetRow = typeof allSets[0];
+
   const chartData = [...byWorkout.values()].map(({ date, sets }) => {
     const bestSet = sets.reduce(
-      (best: typeof allSets[0], s: typeof allSets[0]) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
+      (best: SetRow, s: SetRow) => (epley1RM(s.weight, s.reps) > epley1RM(best.weight, best.reps) ? s : best),
       sets[0]
     );
     return {
       date: format(date, "MMM d"),
       weight: bestSet.weight,
       e1rm: epley1RM(bestSet.weight, bestSet.reps),
-      volume: sets.reduce((sum, s) => sum + s.weight * s.reps, 0),
+      volume: sets.reduce((sum: number, s: SetRow) => sum + s.weight * s.reps, 0),
     };
   });
 
   // PRs
-  const prWeight = allSets.reduce((max, s) => (s.weight > max ? s.weight : max), 0);
+  const prWeight = allSets.reduce((max: number, s: SetRow) => (s.weight > max ? s.weight : max), 0);
   const prReps = allSets.reduce(
-    (max, s) => (s.reps > max.reps ? s : max),
+    (max: SetRow, s: SetRow) => (s.reps > max.reps ? s : max),
     allSets[0] ?? { weight: 0, reps: 0 }
   );
   const prE1RM = allSets.reduce(
-    (max, s) => (epley1RM(s.weight, s.reps) > epley1RM(max.weight, max.reps) ? s : max),
+    (max: SetRow, s: SetRow) => (epley1RM(s.weight, s.reps) > epley1RM(max.weight, max.reps) ? s : max),
     allSets[0] ?? { weight: 0, reps: 0 }
   );
 

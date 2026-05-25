@@ -22,7 +22,7 @@ export default async function HistoryPage() {
       <div className="space-y-2">
         {workouts.map((w) => {
           const workingSets = w.sets.filter((s) => !s.isWarmup);
-          const volume = workingSets.reduce((sum, s) => sum + s.weight * s.reps, 0);
+          const volume = workingSets.reduce((sum: number, s) => sum + s.weight * s.reps, 0);
           const durationMin = w.duration ? Math.round(w.duration / 60) : null;
 
           return (
