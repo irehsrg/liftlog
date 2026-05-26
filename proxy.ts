@@ -4,7 +4,15 @@ import type { NextRequest } from "next/server";
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/pin") || pathname.startsWith("/_next") || pathname === "/favicon.ico") {
+  if (
+    pathname.startsWith("/pin") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/icons/") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/logo.png" ||
+    pathname === "/manifest.json" ||
+    pathname === "/sw.js"
+  ) {
     return NextResponse.next();
   }
 
