@@ -57,7 +57,7 @@ export default function RestTimer({
       {/* Progress bar */}
       {!done && (
         <div
-          className="absolute inset-0 bg-orange-500/10 transition-all duration-1000"
+          className="absolute inset-0 bg-purple-400/10 transition-all duration-1000"
           style={{ width: `${pct}%` }}
         />
       )}

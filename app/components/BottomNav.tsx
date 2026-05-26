@@ -22,7 +22,7 @@ export default function BottomNav() {
             key={href}
             href={href}
             className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 text-xs transition-colors ${
-              active ? "text-orange-500" : "text-gray-500"
+              active ? "text-purple-400" : "text-gray-500"
             }`}
           >
             <Icon active={active} />

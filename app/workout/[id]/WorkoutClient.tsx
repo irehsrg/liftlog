@@ -270,7 +270,7 @@ function ExerciseCard({
         )}
 
         {programExercise?.notes && (
-          <p className="text-xs text-orange-400/80 mt-1">💡 {programExercise.notes}</p>
+          <p className="text-xs text-purple-300/80 mt-1">💡 {programExercise.notes}</p>
         )}
       </div>
 
@@ -297,7 +297,7 @@ function ExerciseCard({
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
           placeholder="lb"
-          className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-center text-sm focus:border-orange-500 focus:outline-none"
+          className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-center text-sm focus:border-purple-400 focus:outline-none"
         />
         <input
           type="number"
@@ -305,7 +305,7 @@ function ExerciseCard({
           value={reps}
           onChange={(e) => setReps(e.target.value)}
           placeholder="reps"
-          className="w-16 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-center text-sm focus:border-orange-500 focus:outline-none"
+          className="w-16 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-center text-sm focus:border-purple-400 focus:outline-none"
         />
         <input
           type="number"
@@ -313,7 +313,7 @@ function ExerciseCard({
           value={rpe}
           onChange={(e) => setRpe(e.target.value)}
           placeholder="RPE"
-          className="w-16 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-center text-sm focus:border-orange-500 focus:outline-none"
+          className="w-16 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-center text-sm focus:border-purple-400 focus:outline-none"
         />
         <button
           onClick={() => {
@@ -324,7 +324,7 @@ function ExerciseCard({
               setWeight(weight); // keep weight
             }
           }}
-          className="flex-1 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm"
+          className="flex-1 bg-purple-400 hover:bg-purple-500 active:bg-purple-600 text-white font-bold py-2.5 rounded-lg transition-colors text-sm"
         >
           ✓
         </button>

@@ -73,7 +73,7 @@ export default async function WorkoutSummaryPage({
             {durationMin && ` · ${durationMin}min`}
           </p>
         </div>
-        <Link href="/" className="text-orange-500 font-semibold text-sm">
+        <Link href="/" className="text-purple-400 font-semibold text-sm">
           Done
         </Link>
       </div>

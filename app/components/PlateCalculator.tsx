@@ -45,7 +45,7 @@ export default function PlateCalculator({
           value={target}
           onChange={(e) => setTarget(e.target.value)}
           placeholder={`Target lb (bar = ${barWeight})`}
-          className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-orange-500 focus:outline-none"
+          className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-purple-400 focus:outline-none"
         />
       </div>
       {plates.length > 0 && (

@@ -46,7 +46,7 @@ export default async function ProgramsPage() {
                     <div key={pe.id} className="px-4 py-3">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className={`text-sm ${pe.isMain ? "font-semibold text-orange-400" : ""}`}>
+                          <p className={`text-sm ${pe.isMain ? "font-semibold text-purple-300" : ""}`}>
                             {pe.exercise.name}
                           </p>
                           {pe.notes && (

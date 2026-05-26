@@ -31,7 +31,7 @@ export default async function SettingsPage() {
               inputMode="decimal"
               name="barWeight"
               defaultValue={settings.barWeight}
-              className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-orange-500 focus:outline-none"
+              className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-purple-400 focus:outline-none"
             />
           </label>
           <label className="flex items-center justify-between px-4 py-3.5">
@@ -43,7 +43,7 @@ export default async function SettingsPage() {
               type="text"
               name="plates"
               defaultValue={settings.plates}
-              className="w-40 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-orange-500 focus:outline-none"
+              className="w-40 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-purple-400 focus:outline-none"
             />
           </label>
           <label className="flex items-center justify-between px-4 py-3.5">
@@ -53,7 +53,7 @@ export default async function SettingsPage() {
               inputMode="numeric"
               name="mainRestSecs"
               defaultValue={settings.mainRestSecs}
-              className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-orange-500 focus:outline-none"
+              className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-purple-400 focus:outline-none"
             />
           </label>
           <label className="flex items-center justify-between px-4 py-3.5">
@@ -63,13 +63,13 @@ export default async function SettingsPage() {
               inputMode="numeric"
               name="acceRestSecs"
               defaultValue={settings.acceRestSecs}
-              className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-orange-500 focus:outline-none"
+              className="w-20 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-right focus:border-purple-400 focus:outline-none"
             />
           </label>
           <div className="px-4 py-3">
             <button
               type="submit"
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              className="w-full bg-purple-400 hover:bg-purple-500 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
             >
               Save Settings
             </button>
@@ -88,12 +88,12 @@ export default async function SettingsPage() {
             name="name"
             placeholder="Exercise name"
             required
-            className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-orange-500 focus:outline-none"
+            className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-purple-400 focus:outline-none"
           />
           <div className="flex gap-2">
             <select
               name="category"
-              className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-orange-500 focus:outline-none"
+              className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-purple-400 focus:outline-none"
             >
               <option value="compound">Compound</option>
               <option value="accessory">Accessory</option>
@@ -101,7 +101,7 @@ export default async function SettingsPage() {
             </select>
             <select
               name="bodyPart"
-              className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-orange-500 focus:outline-none"
+              className="flex-1 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-purple-400 focus:outline-none"
             >
               <option value="legs">Legs</option>
               <option value="push">Push</option>

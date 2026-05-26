@@ -27,7 +27,7 @@ export default function ExerciseCharts({ data }: { data: DataPoint[] }) {
             onClick={() => setTab(t)}
             className={`text-xs px-3 py-1.5 rounded-lg transition-colors ${
               tab === t
-                ? "bg-orange-500 text-white"
+                ? "bg-purple-400 text-white"
                 : "bg-[#1a1a1a] text-gray-400 hover:text-gray-200"
             }`}
           >
@@ -43,14 +43,14 @@ export default function ExerciseCharts({ data }: { data: DataPoint[] }) {
           <Tooltip
             contentStyle={{ background: "#111", border: "1px solid #333", borderRadius: 8 }}
             labelStyle={{ color: "#9ca3af" }}
-            itemStyle={{ color: "#f97316" }}
+            itemStyle={{ color: "#c084fc" }}
           />
           <Line
             type="monotone"
             dataKey={tab}
-            stroke="#f97316"
+            stroke="#c084fc"
             strokeWidth={2}
-            dot={{ fill: "#f97316", r: 3 }}
+            dot={{ fill: "#c084fc", r: 3 }}
             activeDot={{ r: 5 }}
           />
         </LineChart>

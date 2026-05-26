@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import Link from "next/link";
+import Image from "next/image";
 import { prisma } from "@/lib/db";
 import { formatDistanceToNow, format } from "date-fns";
 import { startWorkout } from "./actions/workout";
@@ -81,7 +82,7 @@ export default async function Home() {
   return (
     <div className="px-4 pt-6 max-w-lg mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Lift Log</h1>
+        <Image src="/logo.png" alt="Lift Log" width={40} height={40} className="rounded-xl" />
         <StreakBadge streak={streak} />
       </div>
 
@@ -98,7 +99,7 @@ export default async function Home() {
                   type="submit"
                   className={`w-full text-left rounded-xl p-4 transition-colors border ${
                     isNext
-                      ? "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 border-orange-500 text-white"
+                      ? "bg-purple-400 hover:bg-purple-500 active:bg-purple-600 border-purple-400 text-white"
                       : "bg-[#111] border-[#222] hover:border-[#444]"
                   }`}
                 >
@@ -115,7 +116,7 @@ export default async function Home() {
         <form action={startWorkout}>
           <button
             type="submit"
-            className="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-xl py-5 rounded-2xl transition-colors"
+            className="w-full bg-purple-400 hover:bg-purple-500 active:bg-purple-600 text-white font-bold text-xl py-5 rounded-2xl transition-colors"
           >
             Start Workout
           </button>
