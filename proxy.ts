@@ -10,6 +10,7 @@ export function proxy(request: NextRequest) {
     pathname.startsWith("/icons/") ||
     pathname === "/favicon.ico" ||
     pathname === "/logo.png" ||
+    pathname === "/apple-touch-icon.png" ||
     pathname === "/manifest.json" ||
     pathname === "/sw.js"
   ) {
