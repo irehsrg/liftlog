@@ -72,8 +72,37 @@ export default function WorkoutClient({
     return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
+  const programExercises = workout.programDay?.exercises ?? [];
+
+  const findExercise = useCallback((exerciseId: string): Exercise => {
+    const pe = programExercises.find((p) => p.exerciseId === exerciseId);
+    if (pe) return pe.exercise;
+    return allExercises.find((e) => e.id === exerciseId) ?? { id: exerciseId, name: "", category: "", bodyPart: "" };
+  }, [programExercises, allExercises]);
+
   const handleAddSet = useCallback(
     async (exerciseId: string, weight: number, reps: number, rpe: string, isWarmup: boolean, restSeconds: number) => {
+      const tempId = `temp_${Date.now()}`;
+
+      // Optimistic update immediately — no waiting for server
+      setSets((prev) => [
+        ...prev,
+        {
+          id: tempId,
+          exerciseId,
+          exercise: findExercise(exerciseId),
+          setOrder: prev.filter((s) => s.exerciseId === exerciseId).length + 1,
+          weight,
+          reps,
+          rpe: rpe ? parseFloat(rpe) : null,
+          isWarmup,
+        },
+      ]);
+
+      if (!isWarmup) {
+        setRestTimer({ seconds: restSeconds, active: true });
+      }
+
       const fd = new FormData();
       fd.append("workoutId", workout.id);
       fd.append("exerciseId", exerciseId);
@@ -82,33 +111,19 @@ export default function WorkoutClient({
       if (rpe) fd.append("rpe", rpe);
       fd.append("isWarmup", isWarmup.toString());
 
-      await addSet(fd);
-
-      if (!isWarmup) {
-        setRestTimer({ seconds: restSeconds, active: true });
+      const result = await addSet(fd);
+      // Swap temp ID for real DB ID so deletes work
+      if (result?.id) {
+        setSets((prev) => prev.map((s) => (s.id === tempId ? { ...s, id: result.id } : s)));
       }
-
-      // Optimistic update
-      setSets((prev) => [
-        ...prev,
-        {
-          id: `temp_${Date.now()}`,
-          exerciseId,
-          exercise: { id: exerciseId, name: "", category: "", bodyPart: "" },
-          setOrder: prev.filter((s) => s.exerciseId === exerciseId).length + 1,
-          weight,
-          reps,
-          rpe: rpe ? parseFloat(rpe) : null,
-          isWarmup,
-        },
-      ]);
     },
-    [workout.id]
+    [workout.id, findExercise]
   );
 
   const handleDeleteSet = useCallback(
     async (setId: string) => {
       setSets((prev) => prev.filter((s) => s.id !== setId));
+      if (setId.startsWith("temp_")) return; // not persisted yet, just remove locally
       const fd = new FormData();
       fd.append("setId", setId);
       fd.append("workoutId", workout.id);
@@ -126,8 +141,7 @@ export default function WorkoutClient({
   };
 
   const handleSelectExercise = (ex: Exercise) => {
-    // Don't add if already in program or already manually added
-    const inProgram = (workout.programDay?.exercises ?? []).some((pe) => pe.exerciseId === ex.id);
+    const inProgram = programExercises.some((pe) => pe.exerciseId === ex.id);
     const alreadyAdded = manualExercises.some((e) => e.id === ex.id);
     if (!inProgram && !alreadyAdded) {
       setManualExercises((prev) => [...prev, ex]);
@@ -136,8 +150,6 @@ export default function WorkoutClient({
     setExerciseSearch("");
   };
 
-  // Build exercise list: from program or from sets logged so far
-  const programExercises = workout.programDay?.exercises ?? [];
   const extraExercises = sets
     .filter((s) => !programExercises.some((pe) => pe.exerciseId === s.exerciseId))
     .reduce<WorkoutSet["exercise"][]>((acc, s) => {
@@ -145,7 +157,6 @@ export default function WorkoutClient({
       return acc;
     }, []);
 
-  // Merge manual exercises with any extra exercises already in sets
   const allManualExercises = [
     ...manualExercises,
     ...extraExercises.filter((e) => !manualExercises.some((m) => m.id === e.id)),
@@ -155,8 +166,77 @@ export default function WorkoutClient({
     e.name.toLowerCase().includes(exerciseSearch.toLowerCase())
   );
 
+  // Determine if a program exercise has hit its target working sets
+  const isExerciseDone = (exerciseId: string, targetSets: number) =>
+    sets.filter((s) => s.exerciseId === exerciseId && !s.isWarmup).length >= targetSets;
+
+  // Build active/done exercise node lists
+  const activeNodes: React.ReactNode[] = [];
+  const doneNodes: React.ReactNode[] = [];
+  const seen = new Set<string>();
+
+  for (const pe of programExercises) {
+    if (seen.has(pe.id)) continue;
+    seen.add(pe.id);
+
+    if (pe.supersetGroup) {
+      const group = programExercises.filter((x) => x.supersetGroup === pe.supersetGroup);
+      group.forEach((x) => seen.add(x.id));
+      const groupDone = group.every((x) => isExerciseDone(x.exerciseId, x.targetSets));
+      const node = (
+        <div key={`superset-${pe.supersetGroup}`} className={`border-l-2 border-purple-400 pl-3 space-y-3 ${groupDone ? "opacity-50" : ""}`}>
+          <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">
+            Superset {pe.supersetGroup}
+          </p>
+          {group.map((gpe) => (
+            <ExerciseCard
+              key={gpe.id}
+              programExercise={gpe}
+              sets={sets.filter((s) => s.exerciseId === gpe.exerciseId)}
+              prevSets={prevPerformance[gpe.exerciseId] ?? []}
+              workoutId={workout.id}
+              collapsed={groupDone}
+              onAddSet={(w, r, rpe, wu) => handleAddSet(gpe.exerciseId, w, r, rpe, wu, gpe.restSeconds)}
+              onDeleteSet={handleDeleteSet}
+            />
+          ))}
+        </div>
+      );
+      (groupDone ? doneNodes : activeNodes).push(node);
+    } else {
+      const done = isExerciseDone(pe.exerciseId, pe.targetSets);
+      const node = (
+        <ExerciseCard
+          key={pe.id}
+          programExercise={pe}
+          sets={sets.filter((s) => s.exerciseId === pe.exerciseId)}
+          prevSets={prevPerformance[pe.exerciseId] ?? []}
+          workoutId={workout.id}
+          collapsed={done}
+          onAddSet={(w, r, rpe, wu) => handleAddSet(pe.exerciseId, w, r, rpe, wu, pe.restSeconds)}
+          onDeleteSet={handleDeleteSet}
+        />
+      );
+      (done ? doneNodes : activeNodes).push(node);
+    }
+  }
+
+  const manualNodes = allManualExercises.map((ex) => (
+    <ExerciseCard
+      key={ex.id}
+      programExercise={null}
+      exercise={ex}
+      sets={sets.filter((s) => s.exerciseId === ex.id)}
+      prevSets={prevPerformance[ex.id] ?? []}
+      workoutId={workout.id}
+      collapsed={false}
+      onAddSet={(w, r, rpe, wu) => handleAddSet(ex.id, w, r, rpe, wu, 90)}
+      onDeleteSet={handleDeleteSet}
+    />
+  ));
+
   return (
-    <div className="max-w-lg mx-auto px-4 pt-4 pb-4 space-y-4">
+    <div className="max-w-lg mx-auto px-4 pt-4 pb-32 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -173,95 +253,13 @@ export default function WorkoutClient({
         </button>
       </div>
 
-      {/* Plate calculator */}
       {showPlateCalc && (
         <PlateCalculator barWeight={settings.barWeight} platesStr={settings.plates} />
       )}
 
-      {/* Rest timer */}
-      {restTimer && (
-        <RestTimer
-          seconds={restTimer.seconds}
-          onDismiss={() => setRestTimer(null)}
-        />
-      )}
-
-      {/* Program exercises — render superset groups together, standalone exercises on their own */}
-      {(() => {
-        const rendered: React.ReactNode[] = [];
-        const seen = new Set<string>();
-
-        for (const pe of programExercises) {
-          if (seen.has(pe.id)) continue;
-          seen.add(pe.id);
-
-          if (pe.supersetGroup) {
-            // Collect all exercises sharing this superset group (in order)
-            const group = programExercises.filter(
-              (x) => x.supersetGroup === pe.supersetGroup
-            );
-            // Mark them all as seen
-            group.forEach((x) => seen.add(x.id));
-
-            rendered.push(
-              <div
-                key={`superset-${pe.supersetGroup}`}
-                className="border-l-2 border-purple-400 pl-3 space-y-3"
-              >
-                <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">
-                  Superset {pe.supersetGroup}
-                </p>
-                {group.map((gpe) => (
-                  <ExerciseCard
-                    key={gpe.id}
-                    programExercise={gpe}
-                    sets={sets.filter((s) => s.exerciseId === gpe.exerciseId)}
-                    prevSets={prevPerformance[gpe.exerciseId] ?? []}
-                    workoutId={workout.id}
-                    onAddSet={(w, r, rpe, wu) =>
-                      handleAddSet(gpe.exerciseId, w, r, rpe, wu, gpe.restSeconds)
-                    }
-                    onDeleteSet={handleDeleteSet}
-                  />
-                ))}
-              </div>
-            );
-          } else {
-            rendered.push(
-              <ExerciseCard
-                key={pe.id}
-                programExercise={pe}
-                sets={sets.filter((s) => s.exerciseId === pe.exerciseId)}
-                prevSets={prevPerformance[pe.exerciseId] ?? []}
-                workoutId={workout.id}
-                onAddSet={(w, r, rpe, wu) =>
-                  handleAddSet(pe.exerciseId, w, r, rpe, wu, pe.restSeconds)
-                }
-                onDeleteSet={handleDeleteSet}
-              />
-            );
-          }
-        }
-
-        return rendered;
-      })()}
-
-      {/* Manual / extra exercises */}
-      {allManualExercises.map((ex) => {
-        const exerciseSets = sets.filter((s) => s.exerciseId === ex.id);
-        return (
-          <ExerciseCard
-            key={ex.id}
-            programExercise={null}
-            exercise={ex}
-            sets={exerciseSets}
-            prevSets={prevPerformance[ex.id] ?? []}
-            workoutId={workout.id}
-            onAddSet={(w, r, rpe, wu) => handleAddSet(ex.id, w, r, rpe, wu, 90)}
-            onDeleteSet={handleDeleteSet}
-          />
-        );
-      })}
+      {/* Active exercises */}
+      {activeNodes}
+      {manualNodes}
 
       {/* Add Exercise button */}
       <button
@@ -275,10 +273,25 @@ export default function WorkoutClient({
       <button
         onClick={handleFinish}
         disabled={finishing}
-        className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 text-white font-bold text-lg py-4 rounded-2xl transition-colors mt-4"
+        className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 text-white font-bold text-lg py-4 rounded-2xl transition-colors"
       >
         {finishing ? "Saving..." : "Finish Workout"}
       </button>
+
+      {/* Completed exercises */}
+      {doneNodes.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-600 uppercase tracking-wide font-semibold px-1">Completed</p>
+          {doneNodes}
+        </div>
+      )}
+
+      {/* Rest timer — fixed at bottom above nav */}
+      {restTimer && (
+        <div className="fixed bottom-20 left-0 right-0 z-40 px-4 max-w-lg mx-auto">
+          <RestTimer seconds={restTimer.seconds} onDismiss={() => setRestTimer(null)} />
+        </div>
+      )}
 
       {/* Add Exercise Modal */}
       {showAddExercise && (
@@ -321,9 +334,7 @@ export default function WorkoutClient({
                     disabled={disabled}
                     onClick={() => handleSelectExercise(ex)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm ${
-                      disabled
-                        ? "text-gray-600 cursor-not-allowed"
-                        : "hover:bg-[#1a1a1a] text-gray-200"
+                      disabled ? "text-gray-600 cursor-not-allowed" : "hover:bg-[#1a1a1a] text-gray-200"
                     }`}
                   >
                     <span className="font-medium">{ex.name}</span>
@@ -345,6 +356,7 @@ function ExerciseCard({
   sets,
   prevSets,
   workoutId,
+  collapsed,
   onAddSet,
   onDeleteSet,
 }: {
@@ -353,6 +365,7 @@ function ExerciseCard({
   sets: WorkoutSet[];
   prevSets: PrevSet[];
   workoutId: string;
+  collapsed: boolean;
   onAddSet: (weight: number, reps: number, rpe: string, isWarmup: boolean) => void;
   onDeleteSet: (setId: string) => void;
 }) {
@@ -360,7 +373,6 @@ function ExerciseCard({
   const workingSets = sets.filter((s) => !s.isWarmup);
   const warmupSets = sets.filter((s) => s.isWarmup);
 
-  // Progressive overload: if prev session hit all target sets at target reps, bump weight
   const targetRepsMin = programExercise ? (parseInt(programExercise.targetReps.split("-")[0]) || 0) : 0;
   const increment = programExercise?.isMain ? 5 : 2.5;
   const prevHitTarget =
@@ -369,38 +381,30 @@ function ExerciseCard({
     targetRepsMin > 0 &&
     prevSets.every((s) => s.reps >= targetRepsMin);
 
-  // RPE-aware progressive overload
   const targetRpeMax = programExercise?.targetRpe
     ? parseFloat(programExercise.targetRpe.split("-").pop() ?? "0")
     : null;
-
   const prevRpeSets = prevSets.filter((s) => s.rpe !== null);
   const prevAvgRpe =
     prevRpeSets.length > 0
       ? prevRpeSets.reduce((sum, s) => sum + (s.rpe as number), 0) / prevRpeSets.length
       : null;
 
-  // Determine overload action
   let suggestedWeight: number | null = null;
   let overloadMessage: { text: string; color: string } | null = null;
 
   if (prevHitTarget && prevSets[0]) {
     if (targetRpeMax !== null && prevAvgRpe !== null) {
       if (prevAvgRpe > targetRpeMax + 0.5) {
-        // Too hard — don't bump
-        suggestedWeight = null;
         overloadMessage = { text: "💪 Hit reps but RPE was high — hold weight", color: "text-yellow-400" };
       } else if (prevAvgRpe < targetRpeMax - 1) {
-        // Felt very easy — double bump
         suggestedWeight = prevSets[0].weight + increment * 2;
         overloadMessage = { text: `📈 Felt easy — bumped +${increment * 2} lb`, color: "text-green-400" };
       } else {
-        // Normal bump
         suggestedWeight = prevSets[0].weight + increment;
         overloadMessage = { text: `📈 Hit target last session — weight bumped +${increment} lb`, color: "text-green-400" };
       }
     } else {
-      // No RPE data — normal bump
       suggestedWeight = prevSets[0].weight + increment;
       overloadMessage = { text: `📈 Hit target last session — weight bumped +${increment} lb`, color: "text-green-400" };
     }
@@ -409,16 +413,38 @@ function ExerciseCard({
   const lastWeight = sets.length > 0
     ? sets[sets.length - 1].weight
     : (suggestedWeight ?? prevSets[0]?.weight ?? 0);
-  const lastReps = sets.length > 0 ? sets[sets.length - 1].reps : prevSets[0]?.reps ?? (parseInt(programExercise?.targetReps ?? "0") || 5);
+  const lastReps = sets.length > 0
+    ? sets[sets.length - 1].reps
+    : prevSets[0]?.reps ?? (parseInt(programExercise?.targetReps ?? "0") || 5);
 
   const [weight, setWeight] = useState(lastWeight.toString());
   const [reps, setReps] = useState(lastReps.toString());
   const [rpe, setRpe] = useState("");
   const [showPrev, setShowPrev] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const target = programExercise
     ? `${programExercise.targetSets}×${programExercise.targetReps}${programExercise.targetRpe ? ` @ RPE ${programExercise.targetRpe}` : ""}`
     : null;
+
+  // Collapsed / done summary view
+  if (collapsed && !expanded) {
+    const lastSet = workingSets[workingSets.length - 1];
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="w-full bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl px-4 py-3 flex items-center justify-between text-left"
+      >
+        <div>
+          <p className="text-sm font-medium text-gray-500">{ex.name}</p>
+          <p className="text-xs text-gray-700 mt-0.5">
+            {workingSets.length} sets{lastSet ? ` · ${lastSet.weight} lb × ${lastSet.reps}` : ""}
+          </p>
+        </div>
+        <span className="text-green-600 text-lg">✓</span>
+      </button>
+    );
+  }
 
   return (
     <div className="bg-[#111] border border-[#222] rounded-xl p-4 space-y-3">
@@ -428,31 +454,34 @@ function ExerciseCard({
             <h3 className="font-semibold text-base">{ex.name}</h3>
             {target && <p className="text-xs text-gray-500 mt-0.5">{target}</p>}
           </div>
-          {prevSets.length > 0 && (
-            <button
-              onClick={() => setShowPrev((v) => !v)}
-              className="text-xs text-gray-600 hover:text-gray-400 ml-2 mt-0.5"
-            >
-              {showPrev ? "hide" : "prev"}
-            </button>
-          )}
+          <div className="flex items-center gap-3 ml-2 mt-0.5">
+            {prevSets.length > 0 && (
+              <button
+                onClick={() => setShowPrev((v) => !v)}
+                className="text-xs text-gray-600 hover:text-gray-400"
+              >
+                {showPrev ? "hide" : "prev"}
+              </button>
+            )}
+            {collapsed && expanded && (
+              <button onClick={() => setExpanded(false)} className="text-xs text-gray-600 hover:text-gray-400">
+                collapse
+              </button>
+            )}
+          </div>
         </div>
 
         {showPrev && prevSets.length > 0 && (
           <div className="mt-2 text-xs text-gray-500 space-y-0.5">
             <p className="text-gray-600 mb-1">Last session:</p>
             {prevSets.map((s, i) => (
-              <p key={i}>
-                {s.weight} lb × {s.reps}{s.rpe ? ` @ RPE ${s.rpe}` : ""}
-              </p>
+              <p key={i}>{s.weight} lb × {s.reps}{s.rpe ? ` @ RPE ${s.rpe}` : ""}</p>
             ))}
           </div>
         )}
 
         {overloadMessage && !sets.length && (
-          <p className={`text-xs mt-1 ${overloadMessage.color}`}>
-            {overloadMessage.text}
-          </p>
+          <p className={`text-xs mt-1 ${overloadMessage.color}`}>{overloadMessage.text}</p>
         )}
         {programExercise?.notes && (
           <p className="text-xs text-purple-300/80 mt-1">💡 {programExercise.notes}</p>
@@ -506,7 +535,7 @@ function ExerciseCard({
             const r = parseInt(reps) || 0;
             if (r > 0) {
               onAddSet(w, r, rpe, false);
-              setWeight(weight); // keep weight
+              setWeight(weight);
             }
           }}
           className="flex-1 bg-purple-400 hover:bg-purple-500 active:bg-purple-600 text-white font-bold py-2.5 rounded-lg transition-colors text-sm"
@@ -515,7 +544,6 @@ function ExerciseCard({
         </button>
       </div>
 
-      {/* Warmup button */}
       <button
         onClick={() => {
           const w = parseFloat(weight) || 0;
@@ -542,11 +570,7 @@ function SetRow({
   onDelete: () => void;
 }) {
   return (
-    <div
-      className={`grid grid-cols-4 gap-2 text-sm px-1 py-1 rounded items-center group ${
-        set.isWarmup ? "text-gray-600" : "text-gray-200"
-      }`}
-    >
+    <div className={`grid grid-cols-4 gap-2 text-sm px-1 py-1 rounded items-center ${set.isWarmup ? "text-gray-600" : "text-gray-200"}`}>
       <span>{label ?? index}</span>
       <span>{set.weight}</span>
       <span>{set.reps}</span>
@@ -554,7 +578,7 @@ function SetRow({
         <span>{set.rpe ?? "—"}</span>
         <button
           onClick={onDelete}
-          className="opacity-0 group-hover:opacity-100 text-red-500 text-xs px-1"
+          className="text-red-500/40 hover:text-red-500 active:text-red-500 text-xs px-1 py-1 -mr-1"
         >
           ✕
         </button>

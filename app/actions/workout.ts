@@ -29,7 +29,7 @@ export async function addSet(formData: FormData) {
     orderBy: { setOrder: "desc" },
   });
 
-  await prisma.workoutSet.create({
+  const created = await prisma.workoutSet.create({
     data: {
       workoutId,
       exerciseId,
@@ -42,6 +42,7 @@ export async function addSet(formData: FormData) {
   });
 
   revalidatePath(`/workout/${workoutId}`);
+  return { id: created.id };
 }
 
 export async function deleteSet(formData: FormData) {
