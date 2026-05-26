@@ -5,12 +5,12 @@ import { formatDistanceToNow, format } from "date-fns";
 import { startWorkout } from "./actions/workout";
 import StreakBadge from "./components/StreakBadge";
 
-async function getTodayRecommendedDay() {
+async function getProgramInfo() {
   const program = await prisma.program.findFirst({
     where: { active: true },
     include: { days: { orderBy: { dayOrder: "asc" } } },
   });
-  if (!program) return null;
+  if (!program) return { nextDay: null, allDays: [] };
 
   const lastWorkout = await prisma.workout.findFirst({
     where: { programDayId: { not: null } },
@@ -19,11 +19,14 @@ async function getTodayRecommendedDay() {
   });
 
   const days = program.days;
-  if (!lastWorkout?.programDay) return days[0] ?? null;
-
-  const lastOrder = lastWorkout.programDay.dayOrder;
-  const next = days.find((d) => d.dayOrder > lastOrder) ?? days[0];
-  return next;
+  let nextDay;
+  if (!lastWorkout?.programDay) {
+    nextDay = days[0] ?? null;
+  } else {
+    const lastOrder = lastWorkout.programDay.dayOrder;
+    nextDay = days.find((d) => d.dayOrder > lastOrder) ?? days[0];
+  }
+  return { nextDay, allDays: days };
 }
 
 async function getRecentWorkouts() {
@@ -69,8 +72,8 @@ async function getStreak() {
 }
 
 export default async function Home() {
-  const [todayDay, recentWorkouts, streak] = await Promise.all([
-    getTodayRecommendedDay(),
+  const [{ nextDay: todayDay, allDays }, recentWorkouts, streak] = await Promise.all([
+    getProgramInfo(),
     getRecentWorkouts(),
     getStreak(),
   ]);
@@ -82,25 +85,41 @@ export default async function Home() {
         <StreakBadge streak={streak} />
       </div>
 
-      {/* Start Workout */}
-      <form action={startWorkout}>
-        {todayDay && (
-          <input type="hidden" name="programDayId" value={todayDay.id} />
-        )}
-        <button
-          type="submit"
-          className="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-xl py-5 rounded-2xl transition-colors"
-        >
-          Start Workout
-        </button>
-      </form>
-
-      {/* Today's recommended day */}
-      {todayDay && (
-        <div className="bg-[#111] border border-[#222] rounded-xl p-4">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Up Next</p>
-          <p className="font-semibold text-lg">{todayDay.name}</p>
+      {/* Program day picker */}
+      {allDays.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500 uppercase tracking-wider">Choose Day</p>
+          {allDays.map((day) => {
+            const isNext = day.id === todayDay?.id;
+            return (
+              <form key={day.id} action={startWorkout}>
+                <input type="hidden" name="programDayId" value={day.id} />
+                <button
+                  type="submit"
+                  className={`w-full text-left rounded-xl p-4 transition-colors border ${
+                    isNext
+                      ? "bg-orange-500 hover:bg-orange-600 active:bg-orange-700 border-orange-500 text-white"
+                      : "bg-[#111] border-[#222] hover:border-[#444]"
+                  }`}
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">{day.name}</span>
+                    {isNext && <span className="text-xs opacity-75">Up Next</span>}
+                  </div>
+                </button>
+              </form>
+            );
+          })}
         </div>
+      ) : (
+        <form action={startWorkout}>
+          <button
+            type="submit"
+            className="w-full bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-xl py-5 rounded-2xl transition-colors"
+          >
+            Start Workout
+          </button>
+        </form>
       )}
 
       {/* Quick log without program */}
