@@ -37,6 +37,7 @@ model ProgramExercise {
   restSeconds   Int
   isMain        Boolean    @default(false)
   notes         String?
+  supersetGroup String?
 }
 
 model Exercise {

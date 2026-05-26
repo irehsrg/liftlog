@@ -61,11 +61,14 @@ export default async function WorkoutPage({
     }));
   }
 
+  const allExercises = await prisma.exercise.findMany({ orderBy: { name: "asc" } });
+
   return (
     <WorkoutClient
       workout={workout as Parameters<typeof WorkoutClient>[0]["workout"]}
       prevPerformance={prevPerformance}
       settings={settings ?? { barWeight: 45, plates: "45,35,25,10,5,2.5", mainRestSecs: 180, acceRestSecs: 90 }}
+      allExercises={allExercises}
     />
   );
 }

@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { format } from "date-fns";
+import WorkoutCalendar from "@/app/components/WorkoutCalendar";
 
 export default async function HistoryPage() {
   const workouts = await prisma.workout.findMany({
@@ -12,9 +13,16 @@ export default async function HistoryPage() {
     },
   });
 
+  const workoutDates = workouts.map((w) => new Date(w.date));
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
       <h1 className="text-2xl font-bold">History</h1>
+
+      <div className="bg-[#111] border border-[#222] rounded-xl p-4 space-y-2">
+        <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">16 weeks</p>
+        <WorkoutCalendar workoutDates={workoutDates} />
+      </div>
 
       {workouts.length === 0 && (
         <p className="text-gray-500 text-center py-10">No workouts logged yet.</p>

@@ -16,6 +16,7 @@ type ProgramExercise = {
   restSeconds: number;
   isMain: boolean;
   notes: string | null;
+  supersetGroup: string | null;
 };
 type WorkoutSet = {
   id: string;
@@ -43,16 +44,21 @@ export default function WorkoutClient({
   workout,
   prevPerformance,
   settings,
+  allExercises,
 }: {
   workout: Workout;
   prevPerformance: Record<string, PrevSet[]>;
   settings: Settings;
+  allExercises: Exercise[];
 }) {
   const [sets, setSets] = useState<WorkoutSet[]>(workout.sets);
   const [restTimer, setRestTimer] = useState<{ seconds: number; active: boolean } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [showPlateCalc, setShowPlateCalc] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [showAddExercise, setShowAddExercise] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState("");
+  const [manualExercises, setManualExercises] = useState<Exercise[]>([]);
   const startTime = useRef(Date.now());
 
   useEffect(() => {
@@ -119,15 +125,35 @@ export default function WorkoutClient({
     await finishWorkout(fd);
   };
 
+  const handleSelectExercise = (ex: Exercise) => {
+    // Don't add if already in program or already manually added
+    const inProgram = (workout.programDay?.exercises ?? []).some((pe) => pe.exerciseId === ex.id);
+    const alreadyAdded = manualExercises.some((e) => e.id === ex.id);
+    if (!inProgram && !alreadyAdded) {
+      setManualExercises((prev) => [...prev, ex]);
+    }
+    setShowAddExercise(false);
+    setExerciseSearch("");
+  };
+
   // Build exercise list: from program or from sets logged so far
   const programExercises = workout.programDay?.exercises ?? [];
-  const loggedExerciseIds = new Set(sets.map((s) => s.exerciseId));
   const extraExercises = sets
     .filter((s) => !programExercises.some((pe) => pe.exerciseId === s.exerciseId))
     .reduce<WorkoutSet["exercise"][]>((acc, s) => {
       if (!acc.find((e) => e.id === s.exerciseId)) acc.push(s.exercise);
       return acc;
     }, []);
+
+  // Merge manual exercises with any extra exercises already in sets
+  const allManualExercises = [
+    ...manualExercises,
+    ...extraExercises.filter((e) => !manualExercises.some((m) => m.id === e.id)),
+  ];
+
+  const filteredExercises = allExercises.filter((e) =>
+    e.name.toLowerCase().includes(exerciseSearch.toLowerCase())
+  );
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-4 pb-4 space-y-4">
@@ -160,25 +186,68 @@ export default function WorkoutClient({
         />
       )}
 
-      {/* Program exercises */}
-      {programExercises.map((pe) => {
-        const exerciseSets = sets.filter((s) => s.exerciseId === pe.exerciseId);
-        const prev = prevPerformance[pe.exerciseId] ?? [];
-        return (
-          <ExerciseCard
-            key={pe.id}
-            programExercise={pe}
-            sets={exerciseSets}
-            prevSets={prev}
-            workoutId={workout.id}
-            onAddSet={(w, r, rpe, wu) => handleAddSet(pe.exerciseId, w, r, rpe, wu, pe.restSeconds)}
-            onDeleteSet={handleDeleteSet}
-          />
-        );
-      })}
+      {/* Program exercises — render superset groups together, standalone exercises on their own */}
+      {(() => {
+        const rendered: React.ReactNode[] = [];
+        const seen = new Set<string>();
 
-      {/* Extra exercises logged outside program */}
-      {extraExercises.map((ex) => {
+        for (const pe of programExercises) {
+          if (seen.has(pe.id)) continue;
+          seen.add(pe.id);
+
+          if (pe.supersetGroup) {
+            // Collect all exercises sharing this superset group (in order)
+            const group = programExercises.filter(
+              (x) => x.supersetGroup === pe.supersetGroup
+            );
+            // Mark them all as seen
+            group.forEach((x) => seen.add(x.id));
+
+            rendered.push(
+              <div
+                key={`superset-${pe.supersetGroup}`}
+                className="border-l-2 border-purple-400 pl-3 space-y-3"
+              >
+                <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">
+                  Superset {pe.supersetGroup}
+                </p>
+                {group.map((gpe) => (
+                  <ExerciseCard
+                    key={gpe.id}
+                    programExercise={gpe}
+                    sets={sets.filter((s) => s.exerciseId === gpe.exerciseId)}
+                    prevSets={prevPerformance[gpe.exerciseId] ?? []}
+                    workoutId={workout.id}
+                    onAddSet={(w, r, rpe, wu) =>
+                      handleAddSet(gpe.exerciseId, w, r, rpe, wu, gpe.restSeconds)
+                    }
+                    onDeleteSet={handleDeleteSet}
+                  />
+                ))}
+              </div>
+            );
+          } else {
+            rendered.push(
+              <ExerciseCard
+                key={pe.id}
+                programExercise={pe}
+                sets={sets.filter((s) => s.exerciseId === pe.exerciseId)}
+                prevSets={prevPerformance[pe.exerciseId] ?? []}
+                workoutId={workout.id}
+                onAddSet={(w, r, rpe, wu) =>
+                  handleAddSet(pe.exerciseId, w, r, rpe, wu, pe.restSeconds)
+                }
+                onDeleteSet={handleDeleteSet}
+              />
+            );
+          }
+        }
+
+        return rendered;
+      })()}
+
+      {/* Manual / extra exercises */}
+      {allManualExercises.map((ex) => {
         const exerciseSets = sets.filter((s) => s.exerciseId === ex.id);
         return (
           <ExerciseCard
@@ -194,6 +263,14 @@ export default function WorkoutClient({
         );
       })}
 
+      {/* Add Exercise button */}
+      <button
+        onClick={() => setShowAddExercise(true)}
+        className="w-full border border-[#333] text-gray-400 hover:border-[#555] hover:text-gray-300 font-medium py-3 rounded-xl transition-colors text-sm"
+      >
+        ＋ Add Exercise
+      </button>
+
       {/* Finish */}
       <button
         onClick={handleFinish}
@@ -202,6 +279,62 @@ export default function WorkoutClient({
       >
         {finishing ? "Saving..." : "Finish Workout"}
       </button>
+
+      {/* Add Exercise Modal */}
+      {showAddExercise && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          onClick={() => { setShowAddExercise(false); setExerciseSearch(""); }}
+        >
+          <div
+            className="bg-[#111] border border-[#222] rounded-t-2xl w-full max-w-lg p-4 space-y-3 max-h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-base">Add Exercise</h2>
+              <button
+                onClick={() => { setShowAddExercise(false); setExerciseSearch(""); }}
+                className="text-gray-500 hover:text-gray-300 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <input
+              type="text"
+              autoFocus
+              value={exerciseSearch}
+              onChange={(e) => setExerciseSearch(e.target.value)}
+              placeholder="Search exercises…"
+              className="w-full bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2.5 text-sm focus:border-purple-400 focus:outline-none"
+            />
+            <div className="overflow-y-auto flex-1 space-y-1">
+              {filteredExercises.length === 0 && (
+                <p className="text-sm text-gray-600 text-center py-4">No exercises found</p>
+              )}
+              {filteredExercises.map((ex) => {
+                const inProgram = programExercises.some((pe) => pe.exerciseId === ex.id);
+                const alreadyAdded = manualExercises.some((m) => m.id === ex.id);
+                const disabled = inProgram || alreadyAdded;
+                return (
+                  <button
+                    key={ex.id}
+                    disabled={disabled}
+                    onClick={() => handleSelectExercise(ex)}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm ${
+                      disabled
+                        ? "text-gray-600 cursor-not-allowed"
+                        : "hover:bg-[#1a1a1a] text-gray-200"
+                    }`}
+                  >
+                    <span className="font-medium">{ex.name}</span>
+                    <span className="text-gray-600 ml-2 text-xs">{ex.bodyPart}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -235,7 +368,43 @@ function ExerciseCard({
     prevSets.length >= programExercise.targetSets &&
     targetRepsMin > 0 &&
     prevSets.every((s) => s.reps >= targetRepsMin);
-  const suggestedWeight = prevHitTarget && prevSets[0] ? prevSets[0].weight + increment : null;
+
+  // RPE-aware progressive overload
+  const targetRpeMax = programExercise?.targetRpe
+    ? parseFloat(programExercise.targetRpe.split("-").pop() ?? "0")
+    : null;
+
+  const prevRpeSets = prevSets.filter((s) => s.rpe !== null);
+  const prevAvgRpe =
+    prevRpeSets.length > 0
+      ? prevRpeSets.reduce((sum, s) => sum + (s.rpe as number), 0) / prevRpeSets.length
+      : null;
+
+  // Determine overload action
+  let suggestedWeight: number | null = null;
+  let overloadMessage: { text: string; color: string } | null = null;
+
+  if (prevHitTarget && prevSets[0]) {
+    if (targetRpeMax !== null && prevAvgRpe !== null) {
+      if (prevAvgRpe > targetRpeMax + 0.5) {
+        // Too hard — don't bump
+        suggestedWeight = null;
+        overloadMessage = { text: "💪 Hit reps but RPE was high — hold weight", color: "text-yellow-400" };
+      } else if (prevAvgRpe < targetRpeMax - 1) {
+        // Felt very easy — double bump
+        suggestedWeight = prevSets[0].weight + increment * 2;
+        overloadMessage = { text: `📈 Felt easy — bumped +${increment * 2} lb`, color: "text-green-400" };
+      } else {
+        // Normal bump
+        suggestedWeight = prevSets[0].weight + increment;
+        overloadMessage = { text: `📈 Hit target last session — weight bumped +${increment} lb`, color: "text-green-400" };
+      }
+    } else {
+      // No RPE data — normal bump
+      suggestedWeight = prevSets[0].weight + increment;
+      overloadMessage = { text: `📈 Hit target last session — weight bumped +${increment} lb`, color: "text-green-400" };
+    }
+  }
 
   const lastWeight = sets.length > 0
     ? sets[sets.length - 1].weight
@@ -280,9 +449,9 @@ function ExerciseCard({
           </div>
         )}
 
-        {prevHitTarget && !sets.length && (
-          <p className="text-xs text-green-400 mt-1">
-            📈 Hit target last session — weight bumped +{increment} lb
+        {overloadMessage && !sets.length && (
+          <p className={`text-xs mt-1 ${overloadMessage.color}`}>
+            {overloadMessage.text}
           </p>
         )}
         {programExercise?.notes && (
