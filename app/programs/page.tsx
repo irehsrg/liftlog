@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 
 export default async function ProgramsPage() {
@@ -19,7 +20,10 @@ export default async function ProgramsPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
-      <h1 className="text-2xl font-bold">Program</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Program</h1>
+        <Link href="/programs/edit" className="text-sm text-purple-400 font-semibold">Edit</Link>
+      </div>
 
       {!program && (
         <p className="text-gray-500 text-center py-10">No active program.</p>

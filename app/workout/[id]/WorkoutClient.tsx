@@ -227,8 +227,19 @@ function ExerciseCard({
   const workingSets = sets.filter((s) => !s.isWarmup);
   const warmupSets = sets.filter((s) => s.isWarmup);
 
-  // Auto-fill last used weight
-  const lastWeight = sets.length > 0 ? sets[sets.length - 1].weight : prevSets[0]?.weight ?? 0;
+  // Progressive overload: if prev session hit all target sets at target reps, bump weight
+  const targetRepsMin = programExercise ? (parseInt(programExercise.targetReps.split("-")[0]) || 0) : 0;
+  const increment = programExercise?.isMain ? 5 : 2.5;
+  const prevHitTarget =
+    programExercise !== null &&
+    prevSets.length >= programExercise.targetSets &&
+    targetRepsMin > 0 &&
+    prevSets.every((s) => s.reps >= targetRepsMin);
+  const suggestedWeight = prevHitTarget && prevSets[0] ? prevSets[0].weight + increment : null;
+
+  const lastWeight = sets.length > 0
+    ? sets[sets.length - 1].weight
+    : (suggestedWeight ?? prevSets[0]?.weight ?? 0);
   const lastReps = sets.length > 0 ? sets[sets.length - 1].reps : prevSets[0]?.reps ?? (parseInt(programExercise?.targetReps ?? "0") || 5);
 
   const [weight, setWeight] = useState(lastWeight.toString());
@@ -269,6 +280,11 @@ function ExerciseCard({
           </div>
         )}
 
+        {prevHitTarget && !sets.length && (
+          <p className="text-xs text-green-400 mt-1">
+            📈 Hit target last session — weight bumped +{increment} lb
+          </p>
+        )}
         {programExercise?.notes && (
           <p className="text-xs text-purple-300/80 mt-1">💡 {programExercise.notes}</p>
         )}
