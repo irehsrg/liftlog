@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import { addSet, deleteSet, finishWorkout } from "@/app/actions/workout";
 import PlateCalculator from "@/app/components/PlateCalculator";
 import RestTimer from "@/app/components/RestTimer";
@@ -451,7 +452,7 @@ function ExerciseCard({
       <div>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="font-semibold text-base">{ex.name}</h3>
+            <Link href={`/exercises/${ex.id}`} className="font-semibold text-base no-underline text-inherit">{ex.name}</Link>
             {target && <p className="text-xs text-gray-500 mt-0.5">{target}</p>}
           </div>
           <div className="flex items-center gap-3 ml-2 mt-0.5">
@@ -506,7 +507,7 @@ function ExerciseCard({
       {/* Input row */}
       <div className="flex gap-2 items-center">
         <input
-          type="number"
+          type="text"
           inputMode="decimal"
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
@@ -531,7 +532,8 @@ function ExerciseCard({
         />
         <button
           onClick={() => {
-            const w = parseFloat(weight) || 0;
+            const isBW = weight.trim().toLowerCase() === "bw";
+            const w = isBW ? 0 : (parseFloat(weight) || 0);
             const r = parseInt(reps) || 0;
             if (r > 0) {
               onAddSet(w, r, rpe, false);
@@ -546,7 +548,8 @@ function ExerciseCard({
 
       <button
         onClick={() => {
-          const w = parseFloat(weight) || 0;
+          const isBW = weight.trim().toLowerCase() === "bw";
+          const w = isBW ? 0 : (parseFloat(weight) || 0);
           const r = parseInt(reps) || 0;
           if (r > 0) onAddSet(w, r, rpe, true);
         }}
@@ -572,7 +575,7 @@ function SetRow({
   return (
     <div className={`grid grid-cols-4 gap-2 text-sm px-1 py-1 rounded items-center ${set.isWarmup ? "text-gray-600" : "text-gray-200"}`}>
       <span>{label ?? index}</span>
-      <span>{set.weight}</span>
+      <span>{set.weight === 0 ? "BW" : set.weight}</span>
       <span>{set.reps}</span>
       <div className="flex items-center justify-between">
         <span>{set.rpe ?? "—"}</span>

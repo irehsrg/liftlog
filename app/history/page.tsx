@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { format } from "date-fns";
 import WorkoutCalendar from "@/app/components/WorkoutCalendar";
+import VolumeChart from "@/app/components/VolumeChart";
 
 export default async function HistoryPage() {
   const workouts = await prisma.workout.findMany({
@@ -15,6 +16,19 @@ export default async function HistoryPage() {
 
   const workoutDates = workouts.map((w) => new Date(w.date));
 
+  // Last 12 completed workouts (with at least one set) for the volume trend chart
+  const recentWorkouts = await prisma.workout.findMany({
+    where: { sets: { some: {} } },
+    orderBy: { date: "asc" },
+    take: 12,
+    include: { sets: { where: { isWarmup: false } } },
+  });
+
+  const volumeData = recentWorkouts.map((w) => ({
+    date: format(new Date(w.date), "MMM d"),
+    volume: w.sets.reduce((sum, s) => sum + s.weight * s.reps, 0),
+  }));
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
       <h1 className="text-2xl font-bold">History</h1>
@@ -23,6 +37,8 @@ export default async function HistoryPage() {
         <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">16 weeks</p>
         <WorkoutCalendar workoutDates={workoutDates} />
       </div>
+
+      {volumeData.length > 0 && <VolumeChart data={volumeData} />}
 
       {workouts.length === 0 && (
         <p className="text-gray-500 text-center py-10">No workouts logged yet.</p>
