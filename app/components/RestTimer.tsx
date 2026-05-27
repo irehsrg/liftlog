@@ -69,6 +69,22 @@ export default function RestTimer({
           {done ? "Go!" : `${Math.floor(remaining / 60)}:${(remaining % 60).toString().padStart(2, "0")}`}
         </p>
       </div>
+      {!done && (
+        <div className="relative flex items-center gap-2">
+          <button
+            onClick={() => setRemaining((r) => Math.max(5, r - 30))}
+            className="text-xs text-gray-400 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 hover:bg-[#222] active:bg-[#2a2a2a]"
+          >
+            −30
+          </button>
+          <button
+            onClick={() => setRemaining((r) => r + 30)}
+            className="text-xs text-gray-400 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 hover:bg-[#222] active:bg-[#2a2a2a]"
+          >
+            +30
+          </button>
+        </div>
+      )}
       <button
         onClick={onDismiss}
         className="relative text-gray-500 hover:text-gray-300 text-2xl px-2"
