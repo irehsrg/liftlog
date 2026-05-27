@@ -53,7 +53,7 @@ export default function WorkoutClient({
   allExercises: Exercise[];
 }) {
   const [sets, setSets] = useState<WorkoutSet[]>(workout.sets);
-  const [restTimer, setRestTimer] = useState<{ seconds: number; active: boolean } | null>(null);
+  const [restTimer, setRestTimer] = useState<{ seconds: number; startedAt: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [showPlateCalc, setShowPlateCalc] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -100,8 +100,11 @@ export default function WorkoutClient({
         },
       ]);
 
-      if (!isWarmup) {
-        setRestTimer({ seconds: restSeconds, active: true });
+      if (isWarmup) {
+        setRestTimer(null); // dismiss any active Go! on warmup sets
+      } else {
+        // startedAt as key forces RestTimer to remount — fresh wall-clock endTime
+        setRestTimer({ seconds: restSeconds, startedAt: Date.now() });
       }
 
       const fd = new FormData();
@@ -290,7 +293,7 @@ export default function WorkoutClient({
       {/* Rest timer — fixed at bottom above nav */}
       {restTimer && (
         <div className="fixed bottom-20 left-0 right-0 z-40 px-4 max-w-lg mx-auto">
-          <RestTimer seconds={restTimer.seconds} onDismiss={() => setRestTimer(null)} />
+          <RestTimer key={restTimer.startedAt} seconds={restTimer.seconds} onDismiss={() => setRestTimer(null)} />
         </div>
       )}
 

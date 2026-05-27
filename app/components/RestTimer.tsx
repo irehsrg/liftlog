@@ -9,29 +9,49 @@ export default function RestTimer({
   seconds: number;
   onDismiss: () => void;
 }) {
+  // Wall-clock end time — accurate even when tab is backgrounded
+  const endTimeRef = useRef(Date.now() + seconds * 1000);
   const [remaining, setRemaining] = useState(seconds);
   const [done, setDone] = useState(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const firedRef = useRef(false);
 
+  // Request notification permission once on mount
   useEffect(() => {
-    setRemaining(seconds);
-    setDone(false);
-  }, [seconds]);
-
-  useEffect(() => {
-    if (remaining <= 0) {
-      setDone(true);
-      playBeep();
-      return;
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
     }
-    const t = setTimeout(() => setRemaining((r) => r - 1), 1000);
+  }, []);
+
+  // Poll wall clock every 500ms — stays accurate in background
+  useEffect(() => {
+    const t = setInterval(() => {
+      const rem = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      setRemaining(rem);
+      if (rem <= 0 && !firedRef.current) {
+        firedRef.current = true;
+        setDone(true);
+        playBeep();
+        fireNotification();
+      }
+    }, 500);
+    return () => clearInterval(t);
+  }, []);
+
+  // Auto-dismiss 4 seconds after "Go!"
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(onDismiss, 4000);
     return () => clearTimeout(t);
-  }, [remaining]);
+  }, [done, onDismiss]);
+
+  function adjust(delta: number) {
+    endTimeRef.current = Math.max(Date.now() + 5000, endTimeRef.current + delta * 1000);
+    setRemaining(Math.max(5, Math.ceil((endTimeRef.current - Date.now()) / 1000)));
+  }
 
   function playBeep() {
     try {
       const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-      audioCtxRef.current = ctx;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -44,20 +64,26 @@ export default function RestTimer({
     } catch {}
   }
 
-  const pct = (remaining / seconds) * 100;
+  function fireNotification() {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("Rest complete — Go!", {
+        body: "Time for your next set",
+        icon: "/logo.png",
+      });
+    }
+  }
+
+  const pct = Math.min(100, (remaining / seconds) * 100);
 
   return (
     <div
       className={`relative rounded-xl p-4 flex items-center justify-between overflow-hidden border ${
-        done
-          ? "border-green-600 bg-green-900/20"
-          : "border-[#333] bg-[#111]"
+        done ? "border-green-600 bg-green-900/20" : "border-[#333] bg-[#111]"
       }`}
     >
-      {/* Progress bar */}
       {!done && (
         <div
-          className="absolute inset-0 bg-purple-400/10 transition-all duration-1000"
+          className="absolute inset-0 bg-purple-400/10 transition-all duration-500"
           style={{ width: `${pct}%` }}
         />
       )}
@@ -72,23 +98,20 @@ export default function RestTimer({
       {!done && (
         <div className="relative flex items-center gap-2">
           <button
-            onClick={() => setRemaining((r) => Math.max(5, r - 30))}
+            onClick={() => adjust(-30)}
             className="text-xs text-gray-400 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 hover:bg-[#222] active:bg-[#2a2a2a]"
           >
             −30
           </button>
           <button
-            onClick={() => setRemaining((r) => r + 30)}
+            onClick={() => adjust(30)}
             className="text-xs text-gray-400 bg-[#1a1a1a] border border-[#333] rounded-lg px-3 py-2 hover:bg-[#222] active:bg-[#2a2a2a]"
           >
             +30
           </button>
         </div>
       )}
-      <button
-        onClick={onDismiss}
-        className="relative text-gray-500 hover:text-gray-300 text-2xl px-2"
-      >
+      <button onClick={onDismiss} className="relative text-gray-500 hover:text-gray-300 text-2xl px-2">
         ✕
       </button>
     </div>
