@@ -174,6 +174,20 @@ export default function WorkoutClient({
   const isExerciseDone = (exerciseId: string, targetSets: number) =>
     sets.filter((s) => s.exerciseId === exerciseId && !s.isWarmup).length >= targetSets;
 
+  // Workout completion: working sets logged against the program's target,
+  // capped per-exercise so extra sets don't push past 100%.
+  const targetTotalSets = programExercises.reduce((sum, pe) => sum + pe.targetSets, 0);
+  const completedTargetSets = programExercises.reduce(
+    (sum, pe) =>
+      sum +
+      Math.min(
+        pe.targetSets,
+        sets.filter((s) => s.exerciseId === pe.exerciseId && !s.isWarmup).length
+      ),
+    0
+  );
+  const setPct = targetTotalSets > 0 ? Math.round((completedTargetSets / targetTotalSets) * 100) : 0;
+
   // Build active/done exercise node lists
   const activeNodes: React.ReactNode[] = [];
   const doneNodes: React.ReactNode[] = [];
@@ -189,9 +203,14 @@ export default function WorkoutClient({
       const groupDone = group.every((x) => isExerciseDone(x.exerciseId, x.targetSets));
       const node = (
         <div key={`superset-${pe.supersetGroup}`} className={`border-l-2 border-purple-400 pl-3 space-y-3 ${groupDone ? "opacity-50" : ""}`}>
-          <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">
-            Superset {pe.supersetGroup}
-          </p>
+          <div>
+            <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">
+              Superset {pe.supersetGroup}
+            </p>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Alternate back-to-back, then rest after each round.
+            </p>
+          </div>
           {group.map((gpe) => (
             <ExerciseCard
               key={gpe.id}
@@ -256,6 +275,24 @@ export default function WorkoutClient({
           Plates
         </button>
       </div>
+
+      {/* Set progress — subtle tracker of working sets vs program target */}
+      {targetTotalSets > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>Set progress</span>
+            <span>
+              {completedTargetSets}/{targetTotalSets} · {setPct}%
+            </span>
+          </div>
+          <div className="h-1 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-400 transition-all duration-300"
+              style={{ width: `${setPct}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {showPlateCalc && (
         <PlateCalculator barWeight={settings.barWeight} platesStr={settings.plates} />

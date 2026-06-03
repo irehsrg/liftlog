@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import {
+  scheduleRestNotification,
+  cancelRestNotification,
+} from "@/lib/restNotification";
 
 export default function RestTimer({
   seconds,
@@ -14,12 +18,25 @@ export default function RestTimer({
   const [remaining, setRemaining] = useState(seconds);
   const [done, setDone] = useState(false);
   const firedRef = useRef(false);
+  // True once the OS-scheduled notification is armed — when so, we skip the
+  // in-page Notification on completion so the user isn't notified twice.
+  const scheduledRef = useRef(false);
 
-  // Request notification permission once on mount
+  // Request permission, then arm an OS-scheduled notification that fires at the
+  // rest end time even if the app is backgrounded or closed.
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    let cancelled = false;
+    (async () => {
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+      if (cancelled) return;
+      scheduledRef.current = await scheduleRestNotification(endTimeRef.current);
+    })();
+    return () => {
+      cancelled = true;
+      cancelRestNotification();
+    };
   }, []);
 
   // Poll wall clock every 500ms — stays accurate in background
@@ -31,7 +48,9 @@ export default function RestTimer({
         firedRef.current = true;
         setDone(true);
         playBeep();
-        fireNotification();
+        // The OS-scheduled notification already covers the closed-app case;
+        // only fall back to an in-page notification when it isn't armed.
+        if (!scheduledRef.current) fireNotification();
       }
     }, 500);
     return () => clearInterval(t);
@@ -47,6 +66,12 @@ export default function RestTimer({
   function adjust(delta: number) {
     endTimeRef.current = Math.max(Date.now() + 5000, endTimeRef.current + delta * 1000);
     setRemaining(Math.max(5, Math.ceil((endTimeRef.current - Date.now()) / 1000)));
+    // Re-arm the scheduled notification at the new end time.
+    if (!firedRef.current) {
+      scheduleRestNotification(endTimeRef.current).then((ok) => {
+        scheduledRef.current = ok;
+      });
+    }
   }
 
   function playBeep() {

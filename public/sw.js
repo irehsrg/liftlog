@@ -1,4 +1,4 @@
-const CACHE_NAME = "liftlog-v1";
+const CACHE_NAME = "liftlog-v2";
 const STATIC_ASSETS = ["/", "/history", "/programs", "/settings"];
 
 self.addEventListener("install", (e) => {
@@ -15,6 +15,21 @@ self.addEventListener("activate", (e) => {
     )
   );
   self.clients.claim();
+});
+
+// Tapping a rest-timer (or any) notification focuses an open tab, or opens one.
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  e.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const c of list) {
+          if ("focus" in c) return c.focus();
+        }
+        if (self.clients.openWindow) return self.clients.openWindow("/");
+      })
+  );
 });
 
 self.addEventListener("fetch", (e) => {
