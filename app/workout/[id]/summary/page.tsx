@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { format } from "date-fns";
-import { saveWorkoutNotes, deleteWorkout } from "@/app/actions/workout";
+import { saveWorkoutNotes, deleteWorkout, continueWorkout } from "@/app/actions/workout";
 import NotesForm from "./NotesForm";
 
 function epley1RM(weight: number, reps: number) {
@@ -141,6 +141,17 @@ export default async function WorkoutSummaryPage({
 
       {/* Notes */}
       <NotesForm workoutId={workout.id} initialNotes={workout.notes ?? ""} />
+
+      {/* Continue — re-open this workout to keep logging (e.g. finished by mistake) */}
+      <form action={continueWorkout}>
+        <input type="hidden" name="workoutId" value={workout.id} />
+        <button
+          type="submit"
+          className="w-full border border-purple-400/50 text-purple-300 hover:bg-purple-400/10 font-semibold py-3 rounded-xl text-sm transition-colors"
+        >
+          Continue Workout
+        </button>
+      </form>
 
       {/* Delete */}
       <form action={deleteWorkout}>

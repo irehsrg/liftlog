@@ -60,10 +60,24 @@ export async function finishWorkout(formData: FormData) {
 
   await prisma.workout.update({
     where: { id: workoutId },
-    data: { duration, notes },
+    data: { duration, notes, finishedAt: new Date() },
   });
 
   redirect(`/workout/${workoutId}/summary`);
+}
+
+// Re-open a finished workout — clears the finished flag so it becomes the active
+// in-progress workout again and drops the user back on the live logging screen.
+// Used to recover from an accidental "Finish".
+export async function continueWorkout(formData: FormData) {
+  const workoutId = formData.get("workoutId") as string;
+
+  await prisma.workout.update({
+    where: { id: workoutId },
+    data: { finishedAt: null },
+  });
+
+  redirect(`/workout/${workoutId}`);
 }
 
 export async function saveWorkoutNotes(formData: FormData) {

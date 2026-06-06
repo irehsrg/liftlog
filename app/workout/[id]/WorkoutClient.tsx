@@ -31,6 +31,7 @@ type WorkoutSet = {
 };
 type Workout = {
   id: string;
+  date: string | Date;
   programDay: {
     name: string;
     exercises: ProgramExercise[];
@@ -60,10 +61,14 @@ export default function WorkoutClient({
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState("");
   const [manualExercises, setManualExercises] = useState<Exercise[]>([]);
-  const startTime = useRef(Date.now());
+  // Base elapsed on the workout's persisted start time, not page-mount time, so
+  // the timer stays correct after navigating away and resuming.
+  const startTime = useRef(new Date(workout.date).getTime());
 
   useEffect(() => {
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - startTime.current) / 1000)), 1000);
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startTime.current) / 1000)));
+    tick();
+    const t = setInterval(tick, 1000);
     return () => clearInterval(t);
   }, []);
 

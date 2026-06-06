@@ -59,6 +59,7 @@ model Workout {
   sleepHours   Float?
   energy       Int?
   duration     Int?
+  finishedAt   DateTime?
   sets         WorkoutSet[]
 }
 

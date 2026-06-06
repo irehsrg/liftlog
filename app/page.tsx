@@ -32,12 +32,23 @@ async function getProgramInfo() {
 
 async function getRecentWorkouts() {
   return prisma.workout.findMany({
+    where: { finishedAt: { not: null } },
     orderBy: { date: "desc" },
     take: 5,
     include: {
       programDay: true,
       sets: true,
     },
+  });
+}
+
+// The active, not-yet-finished workout (if any). A workout only ends via the
+// Finish button — navigating away leaves it in progress and resumable here.
+async function getInProgressWorkout() {
+  return prisma.workout.findFirst({
+    where: { finishedAt: null },
+    orderBy: { date: "desc" },
+    include: { programDay: true, sets: true },
   });
 }
 
@@ -73,11 +84,16 @@ async function getStreak() {
 }
 
 export default async function Home() {
-  const [{ nextDay: todayDay, allDays }, recentWorkouts, streak] = await Promise.all([
+  const [{ nextDay: todayDay, allDays }, recentWorkouts, streak, inProgress] = await Promise.all([
     getProgramInfo(),
     getRecentWorkouts(),
     getStreak(),
+    getInProgressWorkout(),
   ]);
+
+  const inProgressWorkingSets = inProgress
+    ? inProgress.sets.filter((s) => !s.isWarmup).length
+    : 0;
 
   return (
     <div className="px-4 pt-6 max-w-lg mx-auto space-y-6">
@@ -85,6 +101,30 @@ export default async function Home() {
         <Image src="/logo.png" alt="Lift Log" width={40} height={40} className="rounded-xl" />
         <StreakBadge streak={streak} />
       </div>
+
+      {/* Resume in-progress workout */}
+      {inProgress && (
+        <Link
+          href={`/workout/${inProgress.id}`}
+          className="block rounded-2xl p-4 bg-purple-400/10 border border-purple-400/40 hover:border-purple-400 transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-purple-300 uppercase tracking-wider font-semibold">
+                Workout in progress
+              </p>
+              <p className="font-semibold mt-0.5">
+                {inProgress.programDay?.name ?? "Quick Workout"}
+              </p>
+              <p className="text-sm text-gray-400 mt-0.5">
+                {inProgressWorkingSets} set{inProgressWorkingSets === 1 ? "" : "s"} ·{" "}
+                started {formatDistanceToNow(new Date(inProgress.date), { addSuffix: true })}
+              </p>
+            </div>
+            <span className="text-purple-300 font-bold text-sm whitespace-nowrap">Resume →</span>
+          </div>
+        </Link>
+      )}
 
       {/* Program day picker */}
       {allDays.length > 0 ? (
