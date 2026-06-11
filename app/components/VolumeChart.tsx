@@ -1,8 +1,9 @@
 "use client";
 
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -14,14 +15,49 @@ interface VolumeChartProps {
   data: { date: string; volume: number }[];
 }
 
+// Least-squares linear regression over the volume series (x = index).
+// Returns the data with a `trend` value on each point, or the data
+// unchanged when there aren't enough points to fit a line.
+function withTrend(
+  data: { date: string; volume: number }[]
+): { date: string; volume: number; trend?: number }[] {
+  const n = data.length;
+  if (n < 2) return data.map((d) => ({ ...d, trend: undefined }));
+
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+  for (let i = 0; i < n; i++) {
+    const y = data[i].volume;
+    sumX += i;
+    sumY += y;
+    sumXY += i * y;
+    sumXX += i * i;
+  }
+
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return data.map((d) => ({ ...d, trend: undefined }));
+
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+
+  return data.map((d, i) => ({
+    ...d,
+    trend: Math.max(0, intercept + slope * i),
+  }));
+}
+
 export default function VolumeChart({ data }: VolumeChartProps) {
+  const chartData = withTrend(data);
+
   return (
     <div className="bg-[#111] border border-[#222] rounded-xl p-4">
       <p className="text-xs text-gray-500 uppercase tracking-wide font-semibold mb-3">
         Volume Trend
       </p>
       <ResponsiveContainer width="100%" height={160}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+        <ComposedChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#222" />
           <XAxis
             dataKey="date"
@@ -45,9 +81,9 @@ export default function VolumeChart({ data }: VolumeChartProps) {
               fontSize: 12,
               color: "#e5e7eb",
             }}
-            formatter={(value) => [
+            formatter={(value, name) => [
               `${Math.round(Number(value ?? 0)).toLocaleString()} lb`,
-              "Volume",
+              name === "trend" ? "Trend" : "Volume",
             ]}
             cursor={{ stroke: "#444", strokeWidth: 1 }}
           />
@@ -61,7 +97,17 @@ export default function VolumeChart({ data }: VolumeChartProps) {
             dot={{ fill: "#c084fc", r: 3, strokeWidth: 0 }}
             activeDot={{ fill: "#c084fc", r: 4, strokeWidth: 0 }}
           />
-        </AreaChart>
+          <Line
+            type="linear"
+            dataKey="trend"
+            stroke="#f0abfc"
+            strokeWidth={1.5}
+            strokeDasharray="5 4"
+            dot={false}
+            activeDot={false}
+            connectNulls
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
