@@ -342,7 +342,7 @@ export default function WorkoutClient({
       {/* Add Exercise Modal */}
       {showAddExercise && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70"
+          className="fixed inset-0 z-[60] flex items-end justify-center bg-black/70"
           onClick={() => { setShowAddExercise(false); setExerciseSearch(""); }}
         >
           <div
