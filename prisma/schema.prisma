@@ -22,6 +22,8 @@ model ProgramDay {
   dayOrder  Int
   exercises ProgramExercise[]
   workouts  Workout[]
+
+  @@index([programId])
 }
 
 model ProgramExercise {
@@ -38,6 +40,9 @@ model ProgramExercise {
   isMain        Boolean    @default(false)
   notes         String?
   supersetGroup String?
+
+  @@index([programDayId])
+  @@index([exerciseId])
 }
 
 model Exercise {
@@ -61,6 +66,10 @@ model Workout {
   duration     Int?
   finishedAt   DateTime?
   sets         WorkoutSet[]
+
+  @@index([date])
+  @@index([finishedAt])
+  @@index([programDayId])
 }
 
 model WorkoutSet {
@@ -75,6 +84,9 @@ model WorkoutSet {
   rpe        Float?
   isWarmup   Boolean  @default(false)
   createdAt  DateTime @default(now())
+
+  @@index([workoutId])
+  @@index([exerciseId])
 }
 
 model Settings {
