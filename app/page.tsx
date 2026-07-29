@@ -2,9 +2,10 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@/lib/db";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { startWorkout } from "./actions/workout";
 import StreakBadge from "./components/StreakBadge";
+import { getStreak } from "@/lib/streak";
 
 async function getProgramInfo() {
   const program = await prisma.program.findFirst({
@@ -52,37 +53,6 @@ async function getInProgressWorkout() {
   });
 }
 
-async function getStreak() {
-  const workouts = await prisma.workout.findMany({
-    orderBy: { date: "desc" },
-    select: { date: true },
-  });
-
-  if (!workouts.length) return 0;
-
-  const getWeek = (d: Date) => {
-    const jan1 = new Date(d.getFullYear(), 0, 1);
-    return Math.ceil(((d.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-  };
-
-  let streak = 0;
-  let currentWeek = getWeek(new Date());
-  const workoutsByWeek = new Map<number, number>();
-
-  for (const w of workouts) {
-    const wk = getWeek(new Date(w.date));
-    workoutsByWeek.set(wk, (workoutsByWeek.get(wk) ?? 0) + 1);
-  }
-
-  while (workoutsByWeek.get(currentWeek) !== undefined) {
-    if ((workoutsByWeek.get(currentWeek) ?? 0) >= 3) streak++;
-    else break;
-    currentWeek--;
-  }
-
-  return streak;
-}
-
 export default async function Home() {
   const [{ nextDay: todayDay, allDays }, recentWorkouts, streak, inProgress] = await Promise.all([
     getProgramInfo(),
@@ -99,7 +69,7 @@ export default async function Home() {
     <div className="px-4 pt-6 max-w-lg mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <Image src="/logo.png" alt="Lift Log" width={40} height={40} className="rounded-xl" />
-        <StreakBadge streak={streak} />
+        <StreakBadge {...streak} />
       </div>
 
       {/* Resume in-progress workout */}
