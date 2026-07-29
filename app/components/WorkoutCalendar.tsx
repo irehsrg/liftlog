@@ -1,4 +1,5 @@
 // Server component — no "use client" directive
+import { dayKey, daysAfter, monthOf, weekKey, weeksBefore } from "@/lib/week";
 
 interface WorkoutCalendarProps {
   workoutDates: Date[];
@@ -6,68 +7,30 @@ interface WorkoutCalendarProps {
 
 const WEEKS = 16;
 const DAY_LABELS = ["M", "", "W", "", "F", "", "S"];
-
-function getMondayOfWeek(date: Date): Date {
-  const d = new Date(date);
-  const day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-  // Distance back to Monday
-  const diff = (day === 0 ? -6 : 1 - day);
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function WorkoutCalendar({ workoutDates }: WorkoutCalendarProps) {
-  // Build a Set of date strings for O(1) lookup (YYYY-MM-DD in local time)
-  const workoutSet = new Set(
-    workoutDates.map((d) => {
-      const local = new Date(d);
-      return `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
-    })
-  );
+  // Days come from lib/week so the heatmap and the streak agree on which
+  // calendar day a workout landed on, and on where each Mon–Sun week begins.
+  const workoutSet = new Set(workoutDates.map(dayKey));
 
-  // The grid runs from 16 weeks ago (Monday) through the current week's Sunday.
-  // "Today" is the rightmost week.
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const thisMonday = getMondayOfWeek(today);
+  const today = dayKey(new Date());
+  const thisMonday = weekKey(today);
 
-  // Start Monday = thisMonday - (WEEKS - 1) * 7 days
-  const startMonday = addDays(thisMonday, -(WEEKS - 1) * 7);
-
-  // Build weeks: array of 16, each containing 7 Date objects (Mon..Sun)
-  const weeks: Date[][] = [];
-  for (let w = 0; w < WEEKS; w++) {
-    const weekStart = addDays(startMonday, w * 7);
-    const days: Date[] = [];
-    for (let d = 0; d < 7; d++) {
-      days.push(addDays(weekStart, d));
-    }
-    weeks.push(days);
-  }
-
-  // Build month labels: for each column, show the month abbreviation if the
-  // month changes from the previous column (or it's the first column).
-  const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const monthLabels: (string | null)[] = weeks.map((week, i) => {
-    const firstDay = week[0]; // Monday of this week
-    if (i === 0) return MONTH_ABBR[firstDay.getMonth()];
-    const prevFirstDay = weeks[i - 1][0];
-    if (firstDay.getMonth() !== prevFirstDay.getMonth()) {
-      return MONTH_ABBR[firstDay.getMonth()];
-    }
-    return null;
+  // The grid runs from 15 weeks before this one through the current week's
+  // Sunday, so "today" sits in the rightmost column.
+  const weeks: string[][] = Array.from({ length: WEEKS }, (_, w) => {
+    const weekStart = weeksBefore(thisMonday, WEEKS - 1 - w);
+    return Array.from({ length: 7 }, (_, d) => daysAfter(weekStart, d));
   });
 
-  function dateKey(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  }
+  // Label a column with its month only when the month changes from the column
+  // before it (or it's the first column).
+  const monthLabels = weeks.map((week, i) => {
+    const month = monthOf(week[0]);
+    if (i === 0 || month !== monthOf(weeks[i - 1][0])) return MONTH_ABBR[month];
+    return null;
+  });
 
   return (
     <div className="overflow-x-auto">
@@ -95,14 +58,13 @@ export default function WorkoutCalendar({ workoutDates }: WorkoutCalendarProps) 
             </div>
 
             {/* Day cells (Mon=0 .. Sun=6) */}
-            {week.map((day, dIdx) => {
-              const key = dateKey(day);
-              const hasWorkout = workoutSet.has(key);
-              const isFuture = day > today;
+            {week.map((day) => {
+              const hasWorkout = workoutSet.has(day);
+              const isFuture = day > today; // ISO day strings sort chronologically
               return (
                 <div
-                  key={dIdx}
-                  title={key}
+                  key={day}
+                  title={day}
                   className={[
                     "w-[10px] h-[10px] rounded-sm",
                     isFuture
