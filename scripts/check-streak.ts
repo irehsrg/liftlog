@@ -1,6 +1,7 @@
 // Sanity checks for the weekly-streak calculation. Pure function, no database.
 // Run with:  npx tsx scripts/check-streak.ts
 import { computeStreak } from "../lib/streak";
+import { dayKey, weekKey } from "../lib/week";
 
 const day = (iso: string) => new Date(`${iso}T18:00:00Z`);
 
@@ -87,6 +88,32 @@ check(
 );
 
 check("no workouts at all", computeStreak([], 4, now), { weeks: 0, thisWeek: 0, goal: 4 });
+
+// Days are pinned to Central, not the UTC clock the server runs on.
+check(
+  "9pm Sunday CDT is still Sunday, not Monday",
+  dayKey(new Date("2026-07-27T02:00:00Z")),
+  "2026-07-26"
+);
+check(
+  "11:30pm Sunday CST (winter, no DST slip) is still Sunday",
+  dayKey(new Date("2026-01-05T05:30:00Z")),
+  "2026-01-04"
+);
+check(
+  "a late Sunday session counts toward the week that's ending",
+  weekKey(dayKey(new Date("2026-07-27T02:00:00Z"))),
+  "2026-07-20"
+);
+check(
+  "late Sunday session completes the week it belongs to",
+  computeStreak(
+    [...week("2026-07-20", 3), new Date("2026-07-27T02:00:00Z")],
+    4,
+    now
+  ),
+  { weeks: 1, thisWeek: 0, goal: 4 }
+);
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");
 process.exit(failures ? 1 : 0);

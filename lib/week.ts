@@ -6,17 +6,17 @@
  * knocked sideways by DST the way `setDate()` on a local Date can.
  *
  * Workout timestamps are stored as UTC instants, but "did I train on Sunday" is
- * a question about the *local* calendar. Set LIFTLOG_TIMEZONE (e.g.
- * "America/New_York") to pin day boundaries to your own zone. Left unset, days
- * fall on the server's timezone — which is UTC in production, so a Sunday
- * evening session can be recorded as Monday and land in the wrong week.
+ * a question about the *local* calendar. Production runs in UTC, so without a
+ * fixed zone an 8pm Central session is recorded as the following day — which
+ * pushes Sunday sessions into the next week and can cost a streak. Days are
+ * therefore pinned to Central; override with LIFTLOG_TIMEZONE if that changes.
  */
 
-const TIME_ZONE = process.env.LIFTLOG_TIMEZONE;
+export const TIME_ZONE = process.env.LIFTLOG_TIMEZONE || "America/Chicago";
 
 // en-CA with 2-digit parts renders ISO-style "2026-07-29".
 const dayFormatter = new Intl.DateTimeFormat("en-CA", {
-  ...(TIME_ZONE ? { timeZone: TIME_ZONE } : {}),
+  timeZone: TIME_ZONE,
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
@@ -39,7 +39,17 @@ export function weekKey(day: string): string {
   return toDay(ms - backToMonday * DAY_MS);
 }
 
+/** The day `n` days after `day` (negative `n` goes back). */
+export function daysAfter(day: string, n: number): string {
+  return toDay(midnightUtc(day) + n * DAY_MS);
+}
+
 /** The Monday `n` weeks before `week` (itself a Monday key). */
 export function weeksBefore(week: string, n: number): string {
-  return toDay(midnightUtc(week) - n * 7 * DAY_MS);
+  return daysAfter(week, -n * 7);
+}
+
+/** Month index (0-11) of a day key, for labelling. */
+export function monthOf(day: string): number {
+  return Number(day.slice(5, 7)) - 1;
 }
