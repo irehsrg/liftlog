@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import WorkoutClient from "./WorkoutClient";
+import { buildPaceModel, EMPTY_PACE } from "@/lib/pace";
+
+/** Past sessions used to estimate how long this one will take. */
+const PACE_HISTORY_WORKOUTS = 8;
 
 export default async function WorkoutPage({
   params,
@@ -66,12 +70,45 @@ export default async function WorkoutPage({
 
   const allExercises = await prisma.exercise.findMany({ orderBy: { name: "asc" } });
 
+  // How long this day usually takes, from the set timestamps of recent sessions
+  // of the same program day. One query for the lot, bounded to the last few
+  // workouts so the estimate tracks current pace rather than the whole archive.
+  let paceHistory = EMPTY_PACE;
+  if (workout.programDayId) {
+    const priorSessions = await prisma.workout.findMany({
+      where: {
+        programDayId: workout.programDayId,
+        id: { not: id },
+        sets: { some: {} },
+      },
+      orderBy: { date: "desc" },
+      take: PACE_HISTORY_WORKOUTS,
+      select: {
+        sets: {
+          orderBy: { createdAt: "asc" },
+          select: { exerciseId: true, createdAt: true, isWarmup: true },
+        },
+      },
+    });
+
+    paceHistory = buildPaceModel(
+      priorSessions.map((w) =>
+        w.sets.map((s) => ({
+          exerciseId: s.exerciseId,
+          at: new Date(s.createdAt).getTime(),
+          isWarmup: s.isWarmup,
+        }))
+      )
+    );
+  }
+
   return (
     <WorkoutClient
       workout={workout as Parameters<typeof WorkoutClient>[0]["workout"]}
       prevPerformance={prevPerformance}
       settings={settings ?? { barWeight: 45, plates: "45,35,25,10,5,2.5", mainRestSecs: 180, acceRestSecs: 90 }}
       allExercises={allExercises}
+      paceHistory={paceHistory}
     />
   );
 }
