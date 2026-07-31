@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { addSet, deleteSet, finishWorkout } from "@/app/actions/workout";
 import PlateCalculator from "@/app/components/PlateCalculator";
 import RestTimer from "@/app/components/RestTimer";
+import {
+  buildPaceModel,
+  estimateRemainingSeconds,
+  formatRemaining,
+  type PaceModel,
+} from "@/lib/pace";
 
 type Exercise = { id: string; name: string; category: string; bodyPart: string };
 type ProgramExercise = {
@@ -28,6 +34,8 @@ type WorkoutSet = {
   reps: number;
   rpe: number | null;
   isWarmup: boolean;
+  /** When the set was logged — drives the pace estimate. */
+  createdAt: string | Date;
 };
 type Workout = {
   id: string;
@@ -47,11 +55,13 @@ export default function WorkoutClient({
   prevPerformance,
   settings,
   allExercises,
+  paceHistory,
 }: {
   workout: Workout;
   prevPerformance: Record<string, PrevSet[]>;
   settings: Settings;
   allExercises: Exercise[];
+  paceHistory: PaceModel;
 }) {
   const [sets, setSets] = useState<WorkoutSet[]>(workout.sets);
   const [restTimer, setRestTimer] = useState<{ seconds: number; startedAt: number } | null>(null);
@@ -63,14 +73,14 @@ export default function WorkoutClient({
   const [manualExercises, setManualExercises] = useState<Exercise[]>([]);
   // Base elapsed on the workout's persisted start time, not page-mount time, so
   // the timer stays correct after navigating away and resuming.
-  const startTime = useRef(new Date(workout.date).getTime());
+  const startTime = new Date(workout.date).getTime();
 
   useEffect(() => {
-    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startTime.current) / 1000)));
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startTime) / 1000)));
     tick();
     const t = setInterval(tick, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [startTime]);
 
   const formatElapsed = (s: number) => {
     const m = Math.floor(s / 60);
@@ -102,6 +112,7 @@ export default function WorkoutClient({
           reps,
           rpe: rpe ? parseFloat(rpe) : null,
           isWarmup,
+          createdAt: new Date(),
         },
       ]);
 
@@ -192,6 +203,59 @@ export default function WorkoutClient({
     0
   );
   const setPct = targetTotalSets > 0 ? Math.round((completedTargetSets / targetTotalSets) * 100) : 0;
+
+  // Estimated finish. Today's set timestamps give the live pace; the server
+  // supplies the same model built from recent sessions of this program day.
+  const livePace = useMemo(
+    () =>
+      buildPaceModel([
+        sets.map((s) => ({
+          exerciseId: s.exerciseId,
+          at: new Date(s.createdAt).getTime(),
+          isWarmup: s.isWarmup,
+        })),
+      ]),
+    [sets]
+  );
+
+  // Derived from the ticking elapsed count rather than read fresh, so the whole
+  // estimate stays a pure function of state and still refreshes every second.
+  const nowMs = startTime + elapsed * 1000;
+  const lastSetAt = sets.reduce(
+    (latest, s) => Math.max(latest, new Date(s.createdAt).getTime()),
+    startTime
+  );
+
+  const remainingSeconds = estimateRemainingSeconds({
+    remaining: programExercises.map((pe) => ({
+      exerciseId: pe.exerciseId,
+      sets: Math.max(
+        0,
+        pe.targetSets - sets.filter((s) => s.exerciseId === pe.exerciseId && !s.isWarmup).length
+      ),
+      restSeconds: pe.restSeconds,
+    })),
+    history: paceHistory,
+    live: livePace,
+    secondsSinceLastSet: Math.max(0, (nowMs - lastSetAt) / 1000),
+  });
+
+  // Held back until the clock has ticked once on the client: the finish time is
+  // formatted in the phone's timezone, which the server would render differently
+  // and trip hydration over.
+  const finishEstimate =
+    elapsed > 0 && remainingSeconds !== null
+      ? {
+          left: formatRemaining(remainingSeconds),
+          clock: new Date(nowMs + remainingSeconds * 1000).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+          basis: paceHistory.samples
+            ? `Based on your last ${paceHistory.samples} rest gaps on this day, adjusted for today's pace.`
+            : "Based on today's pace — no history for this day yet.",
+        }
+      : null;
 
   // Build active/done exercise node lists
   const activeNodes: React.ReactNode[] = [];
@@ -296,6 +360,15 @@ export default function WorkoutClient({
               style={{ width: `${setPct}%` }}
             />
           </div>
+          {finishEstimate && (
+            <div
+              className="flex items-center justify-between text-[11px] text-gray-600"
+              title={finishEstimate.basis}
+            >
+              <span>~{finishEstimate.left} left</span>
+              <span>finish ~{finishEstimate.clock}</span>
+            </div>
+          )}
         </div>
       )}
 
