@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fire TV launcher banner: 320x180. Screen outline with a play triangle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <path
+        android:fillColor="#101418"
+        android:pathData="M0,0 H320 V180 H0 Z" />
+
+    <!-- Display -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M110,46 H210 A8,8 0 0 1 218,54 V106 A8,8 0 0 1 210,114 H110 A8,8 0 0 1 102,106 V54 A8,8 0 0 1 110,46 Z M110,58 A2,2 0 0 0 108,60 V100 A2,2 0 0 0 110,102 H210 A2,2 0 0 0 212,100 V60 A2,2 0 0 0 210,58 Z" />
+
+    <!-- Stand / play triangle -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M160,120 L196,152 H124 Z" />
+
+</vector>

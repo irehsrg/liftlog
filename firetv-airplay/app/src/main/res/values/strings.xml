@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AirPlay Receiver</string>
+    <string name="status_starting">Starting…</string>
+    <string name="status_ready">Ready at %1$s — pick this device from AirPlay on your iPhone or Mac</string>
+    <string name="status_ready_no_address">Ready, but no network address was found. Check the Wi‑Fi connection.</string>
+    <string name="status_connected">Connected to %1$s</string>
+    <string name="status_waiting_for_video">Waiting for video…</string>
+    <string name="status_error">Could not start the receiver</string>
+</resources>
