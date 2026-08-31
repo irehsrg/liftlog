@@ -31,7 +31,18 @@ export default async function HistoryPage() {
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 space-y-4">
-      <h1 className="text-2xl font-bold">History</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">History</h1>
+        {workouts.length > 0 && (
+          <a
+            href="/api/export"
+            download
+            className="text-sm font-semibold text-purple-400 hover:text-purple-300"
+          >
+            Export CSV
+          </a>
+        )}
+      </div>
 
       <div className="bg-[#111] border border-[#222] rounded-xl p-4 space-y-2">
         <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">16 weeks</p>
