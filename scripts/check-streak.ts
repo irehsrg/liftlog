@@ -1,7 +1,7 @@
 // Sanity checks for the weekly-streak calculation. Pure function, no database.
 // Run with:  npx tsx scripts/check-streak.ts
 import { computeStreak } from "../lib/streak";
-import { dayKey, weekKey } from "../lib/week";
+import { dayKey, weekKey, instantOnDay } from "../lib/week";
 
 const day = (iso: string) => new Date(`${iso}T18:00:00Z`);
 
@@ -113,6 +113,46 @@ check(
     now
   ),
   { weeks: 1, thisWeek: 0, goal: 4 }
+);
+
+// --- Backfilling a session onto the day it was trained ---------------------
+// Logging two days of training in one sitting stamps both with today, which the
+// streak correctly reads as a single training day. instantOnDay is how the
+// second one gets moved back to its real day.
+
+for (const d of ["2026-08-11", "2026-01-04", "2026-03-08", "2026-11-01", "2026-12-31"]) {
+  // 03-08 and 11-01 straddle the US DST transitions, where a naive UTC-midnight
+  // instant lands on the day before.
+  check(`instantOnDay round-trips ${d}`, dayKey(instantOnDay(d)), d);
+}
+
+check(
+  "UTC midnight would have filed the day before — instantOnDay does not",
+  dayKey(new Date("2026-08-11T00:00:00Z")),
+  "2026-08-10"
+);
+
+check(
+  "backfilled second day restores a week that looked short",
+  computeStreak(
+    // Wednesday logged live; Tuesday's session entered the same evening but
+    // corrected to Tuesday. Two distinct days, so a 2-day goal is met.
+    [...week("2026-07-20", 1), instantOnDay("2026-07-21"), day("2026-07-22")],
+    2,
+    now
+  ),
+  { weeks: 1, thisWeek: 0, goal: 2 }
+);
+
+check(
+  "uncorrected backfill is what broke the streak",
+  computeStreak(
+    // Both sessions stamped Wednesday: one distinct day, goal of 2 missed.
+    [day("2026-07-22"), day("2026-07-22")],
+    2,
+    now
+  ),
+  { weeks: 0, thisWeek: 0, goal: 2 }
 );
 
 console.log(failures ? `\n${failures} check(s) failed` : "\nAll checks passed");

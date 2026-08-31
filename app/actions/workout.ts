@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { instantOnDay } from "@/lib/week";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
@@ -78,6 +79,35 @@ export async function continueWorkout(formData: FormData) {
   });
 
   redirect(`/workout/${workoutId}`);
+}
+
+/**
+ * Move a workout to the calendar day it actually happened on.
+ *
+ * A session is stamped with the moment it is logged, so entering two days of
+ * training in one sitting files both under today. The streak counts *distinct*
+ * days, so a genuine two-day week then reads as one and can break a streak that
+ * was never actually missed. This puts the backfilled session back on its day.
+ */
+export async function setWorkoutDate(formData: FormData) {
+  const workoutId = formData.get("workoutId") as string;
+  const day = ((formData.get("date") as string | null) ?? "").trim();
+
+  // The value comes from a native date input; anything else is a malformed
+  // submission and is better ignored than written as an Invalid Date.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+  const date = instantOnDay(day);
+  if (Number.isNaN(date.getTime())) return;
+
+  await prisma.workout.update({
+    where: { id: workoutId },
+    data: { date },
+  });
+
+  // The streak, the calendar and the history list all key off this date.
+  revalidatePath(`/workout/${workoutId}/summary`);
+  revalidatePath("/");
+  revalidatePath("/history");
 }
 
 export async function saveWorkoutNotes(formData: FormData) {

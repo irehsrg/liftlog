@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { format } from "date-fns";
 import { saveWorkoutNotes, deleteWorkout, continueWorkout } from "@/app/actions/workout";
 import NotesForm from "./NotesForm";
+import WorkoutDateForm from "./WorkoutDateForm";
+import { dayKey } from "@/lib/week";
 
 function epley1RM(weight: number, reps: number) {
   if (reps === 1) return weight;
@@ -138,6 +140,9 @@ export default async function WorkoutSummaryPage({
           );
         })}
       </div>
+
+      {/* Date — correctable, so a backfilled session lands on the day it was trained */}
+      <WorkoutDateForm workoutId={workout.id} initialDay={dayKey(new Date(workout.date))} />
 
       {/* Notes */}
       <NotesForm workoutId={workout.id} initialNotes={workout.notes ?? ""} />
