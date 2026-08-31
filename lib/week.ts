@@ -53,3 +53,24 @@ export function weeksBefore(week: string, n: number): string {
 export function monthOf(day: string): number {
   return Number(day.slice(5, 7)) - 1;
 }
+
+/**
+ * An instant that `dayKey` maps back to `day` — the inverse of `dayKey`.
+ *
+ * Needed whenever the user names a calendar day rather than training right now,
+ * such as backfilling Tuesday's session on Thursday. Storing `2026-08-11` as UTC
+ * midnight would be 7pm Aug 10 in Central, filing the workout under the previous
+ * day — and if that crosses a Monday, under the previous *week*. Anchoring at
+ * midday keeps the instant clear of both midnight boundaries and DST shifts.
+ */
+export function instantOnDay(day: string): Date {
+  let ms = midnightUtc(day) + DAY_MS / 2;
+  // Zones more than 12h from UTC push midday onto a neighbouring date; nudging
+  // by the observed drift lands on the requested day for any offset.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const landed = dayKey(new Date(ms));
+    if (landed === day) break;
+    ms -= midnightUtc(landed) - midnightUtc(day);
+  }
+  return new Date(ms);
+}
