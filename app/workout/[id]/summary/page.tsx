@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { saveWorkoutNotes, deleteWorkout, continueWorkout } from "@/app/actions/workout";
 import NotesForm from "./NotesForm";
 import WorkoutDateForm from "./WorkoutDateForm";
-import { dayKey } from "@/lib/week";
+import { dayKey, instantOnDay } from "@/lib/week";
 
 function epley1RM(weight: number, reps: number) {
   if (reps === 1) return weight;
@@ -62,6 +62,39 @@ export default async function WorkoutSummaryPage({
       ),
     };
   }
+
+  // Other counting sessions already filed on this workout's calendar day.
+  //
+  // The streak counts distinct training days, so two sessions sharing a date
+  // count once — a backfill stamped with the day it was *entered* rather than
+  // the day it was trained quietly costs the week a day, and the loss only
+  // shows up later as a streak that has already dropped. Surfacing it here,
+  // on the page every finished workout redirects to, catches it while the user
+  // still remembers which day it was.
+  //
+  // Bounded by a ±36h window on the indexed `date` column rather than scanned:
+  // the day key is timezone-derived and can't be expressed in SQL, so the range
+  // covers any zone offset and the exact day match is done in JS.
+  const day = dayKey(new Date(workout.date));
+  const DAY_WINDOW_MS = 36 * 60 * 60 * 1000;
+  const anchor = instantOnDay(day).getTime();
+  const neighbours = workingSets.length
+    ? await prisma.workout.findMany({
+        where: {
+          id: { not: id },
+          date: {
+            gte: new Date(anchor - DAY_WINDOW_MS),
+            lte: new Date(anchor + DAY_WINDOW_MS),
+          },
+          // Only sessions that actually count toward the streak.
+          sets: { some: { isWarmup: false } },
+        },
+        select: { date: true, programDay: { select: { name: true } } },
+      })
+    : [];
+  const alsoOnThisDay = neighbours
+    .filter((w) => dayKey(new Date(w.date)) === day)
+    .map((w) => w.programDay?.name ?? "Quick Workout");
 
   const durationMin = workout.duration ? Math.round(workout.duration / 60) : null;
 
@@ -142,7 +175,11 @@ export default async function WorkoutSummaryPage({
       </div>
 
       {/* Date — correctable, so a backfilled session lands on the day it was trained */}
-      <WorkoutDateForm workoutId={workout.id} initialDay={dayKey(new Date(workout.date))} />
+      <WorkoutDateForm
+        workoutId={workout.id}
+        initialDay={day}
+        alsoOnThisDay={alsoOnThisDay}
+      />
 
       {/* Notes */}
       <NotesForm workoutId={workout.id} initialNotes={workout.notes ?? ""} />
